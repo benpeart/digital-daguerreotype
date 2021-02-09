@@ -65,13 +65,12 @@ cv::Mat frame_to_mat(const rs2::frame& frame)
 }
 
 // convert cv::Mat to OpenGL texture
-GLuint mat_to_gl_texture(cv::Mat& mat)
+GLuint mat_to_gl_texture(cv::Mat& mat, GLuint &image_texture)
 {
     using namespace cv;
 
-    GLuint image_texture = 0;
-
-    glGenTextures(1, &image_texture);
+    if (!image_texture)
+        glGenTextures(1, &image_texture);
     GLenum err = glGetError();
 
     // convert the color order (as we can't use the OpenGL 3 GL_BGR or GL_BGRA flags below)

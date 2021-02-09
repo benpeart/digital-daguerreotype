@@ -1,6 +1,9 @@
 //
 // Travelling Salesman Problem | Greedy Approach
+// https://origin.geeksforgeeks.org/travelling-salesman-problem-greedy-approach/
 //
+
+// D:\src\opencv\sources\samples\cpp\travelsalesman.cpp
 
 #include <vector>
 #include <map>

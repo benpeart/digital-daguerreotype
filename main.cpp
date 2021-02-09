@@ -10,6 +10,9 @@
 #include <opencv2/opencv.hpp>   // Include OpenCV API
 #include <GLFW/glfw3.h>
 #include <stdio.h>
+#include <thread>
+#include <future>
+#include "rgb2tsp.hpp"
 #include "texture.h"
 
 using namespace rs2;
@@ -47,6 +50,16 @@ int main(int, char**) try
     // the OpenCV image we will draw
     Mat display_image, print_image;
     bool process_image = true;
+    bool process_tsp = false;
+    GLuint display_texture;
+
+    // asynchronously calculate a TSP for the given image matrix
+    std::future<Path> async_tsp;
+    std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(false);
+    Path tsp;
+
+    // create OpenGL texture to use for caching image to be displayed
+    glGenTextures(1, &display_texture);
 
     // Create booleans to control GUI (printing - show 'printing to file' text)
     program_modes program_mode = program_modes::interactive;
@@ -70,7 +83,7 @@ int main(int, char**) try
     // Create a align object.
     // align allows us to perform alignment of depth frames to others frames
     // The "align_to" is the stream type to which we plan to align depth frames.
-    align align(align_to);
+    rs2::align align(align_to);
 
     // Define a variable for controlling the distance to clip (integer divide by 10 to get actual flot value)
     float depth_clipping_distance = 1.f;
@@ -133,6 +146,8 @@ int main(int, char**) try
     // Main loop
     while (!glfwWindowShouldClose(window))
     {
+        int x, y;
+
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -191,17 +206,18 @@ int main(int, char**) try
 
             // we will need to process this image before printing
             process_image = true;
-            // TODO: kill any background processing thread(s)
+
+            // cancel any background tasks
+            cancellation_token = true;
 
             // mirror the image to make it easier to center yourself 
             flip(display_image, display_image, 1);
 
             // render the "other_frame" which is an altered frame, stripped from its background
-            int x = (w - other_frame.get_width()) / 2;
-            int y = (h - other_frame.get_height()) / 2;
-            GLuint gl_texture = mat_to_gl_texture(display_image);
-            render_gl_texture(gl_texture, { (float)x, (float)y, (float)other_frame.get_width(), (float)other_frame.get_height() });
-            glDeleteTextures(1, &gl_texture);
+            x = (w - other_frame.get_width()) / 2;
+            y = (h - other_frame.get_height()) / 2;
+            display_texture = mat_to_gl_texture(display_image, display_texture);
+            render_gl_texture(display_texture, { (float)x, (float)y, (float)other_frame.get_width(), (float)other_frame.get_height() });
 
             // if the screen is wide enough, display the depth map
             if (w >= 1024)
@@ -218,9 +234,8 @@ int main(int, char**) try
                 Mat depth_image;
                 rs2::colorizer c;
                 flip(frame_to_mat(c.process(aligned_depth_frame)), depth_image, 1);
-                gl_texture = mat_to_gl_texture(depth_image);
-                render_gl_texture(gl_texture, pip_stream);
-                glDeleteTextures(1, &gl_texture);
+                display_texture = mat_to_gl_texture(depth_image, display_texture);
+                render_gl_texture(display_texture, pip_stream);
             }
 
             // Start the Dear ImGui frame
@@ -247,8 +262,7 @@ int main(int, char**) try
 
         case paused:
         {
-            int x, y;
-
+            // if we have a new image to process
             if (process_image)
             {
                 // Crop the image
@@ -257,32 +271,20 @@ int main(int, char**) try
                 Rect box(Point(x, y), Size(inWidth, inHeight));
                 Mat crop(display_image, box);
 
-                // save captured frame for display and print processing
-                display_image = crop;
+                // start converting cv:Mat to a vector of TSP points
+                cancellation_token = false;
+                async_tsp = std::async(std::launch::async, mat_to_tsp, crop, std::ref(cancellation_token));
+                process_tsp = true;
 
-                // TODO: start background thread to do image processing pipeline
-
-                // lighten image to blow out the face highlights
-                display_image.convertTo(print_image, -1, 1, 150);
-
-                /*
-                    image = ImageAdjust[image, {0,0.9}] (* lighten the image to blow out the face highlights *)
-                    image = ColorConvert[image,"Grayscale"]
-                    image = ColorQuantize[image, 2]
-                    image = ImageAdjust[image] (* push colors to 0 or 255 *)
-                    pos = PixelValuePositions[image,0]; (* collect positions of all black pixels *)
-                    res = FindShortestTour[pos]; (* Use TSP to find path between all black pixels *)
-                */
-
+                // Cache the cropped OpenGL texture so we don't have to created it every loop
+                display_texture = mat_to_gl_texture(crop, display_texture);
                 process_image = false;
             }
 
-            // render as an OpenGL texture
+            // render the cached OpenGL texture
             x = (w - inWidth) / 2;
             y = (h - inHeight) / 2;
-            GLuint gl_texture = mat_to_gl_texture(display_image);
-            render_gl_texture(gl_texture, { (float)x, (float)y, (float)inWidth, (float)inHeight });
-            glDeleteTextures(1, &gl_texture);
+            render_gl_texture(display_texture, { (float)x, (float)y, (float)inWidth, (float)inHeight });
 
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL2_NewFrame();
@@ -303,6 +305,42 @@ int main(int, char**) try
 
         case printing:
         {
+            // if we have a tsp to process
+            if (process_tsp)
+            {
+                // check to see if computing the tsp has completed
+                if (async_tsp.wait_for(std::chrono::milliseconds(50)) == future_status::ready)
+                {
+                    // retrieve the TSP from the background task
+                    tsp = async_tsp.get();
+                    process_tsp = false;
+
+                    // draw the TSP path as a series of lines to simulate what we'll be outputting
+                    display_image = Scalar(255, 255, 255);
+                    for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
+                    {
+                        auto j = i + 1;
+                        if (j != tsp.end())
+                            cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 2);
+                    }
+
+                    // convert the output to a texture we can use to paint
+                    display_texture = mat_to_gl_texture(display_image, display_texture);
+                }
+                else
+                {
+                    // create a 'progress' gl texture to display while the tsp is computed
+                    display_image = Scalar(255, 255, 255);
+                    cv::putText(display_image, "thinking...", { inWidth / 2, inHeight / 2 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(118, 185, 0), 4);
+                    display_texture = mat_to_gl_texture(display_image, display_texture);
+                }
+            }
+
+            // render the cached OpenGL texture
+            x = (w - inWidth) / 2;
+            y = (h - inHeight) / 2;
+            render_gl_texture(display_texture, { (float)x, (float)y, (float)inWidth, (float)inHeight });
+
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL2_NewFrame();
             ImGui_ImplGlfw_NewFrame();
@@ -334,6 +372,7 @@ int main(int, char**) try
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
+    glDeleteTextures(1, &display_texture);
     glfwDestroyWindow(window);
     glfwTerminate();
 
