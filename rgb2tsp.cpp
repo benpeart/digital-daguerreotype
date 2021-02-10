@@ -22,8 +22,8 @@ void ColorQuantize(cv::Mat& image, int k)
     kmeans(data, k, labels, TermCriteria(TermCriteria::MAX_ITER, 10, 1.0), 3, KMEANS_PP_CENTERS, centers);
 
     // reshape both to a single row of Vec3f pixels:
-    centers = centers.reshape(3, centers.rows);
-    data = data.reshape(3, data.rows);
+    centers = centers.reshape(image.channels(), centers.rows);
+    data = data.reshape(image.channels(), data.rows);
 
     // replace pixel values with their center value:
     Vec3f* p = data.ptr<Vec3f>();
@@ -33,7 +33,7 @@ void ColorQuantize(cv::Mat& image, int k)
     }
 
     // back to 2d, and uchar:
-    image = data.reshape(3, image.rows);
+    image = data.reshape(image.channels(), image.rows);
     image.convertTo(image, CV_8U);
 }
 
@@ -47,7 +47,7 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
         return tsp;
 
     // ColorConvert[image,"Grayscale"] - converts the color space of image to the specified color space colspace.
-//    cvtColor(image, image, COLOR_BGR2GRAY);
+    cvtColor(image, image, COLOR_BGR2GRAY);
     if (cancelled)
         return tsp;
 
@@ -55,7 +55,7 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
     ColorQuantize(image, 2);
     if (cancelled)
         return tsp;
-//    debug_image = image;
+
 /*
     image = ImageAdjust[image] (* push colors to 0 or 255 *)
     if (cancelled)
@@ -66,7 +66,7 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
     res = FindShortestTour[pos]; (* Use TSP to find path between all black pixels *)
 */
 
-// Make sure that function takes a few seconds to complete
+    // Make sure that function takes a few seconds to complete
     std::this_thread::sleep_for(seconds(5));
     if (cancelled)
         return tsp;

@@ -30,7 +30,7 @@ const int inHeight = 420;
 const int window_gap = 5;
 const int slider_window_width = 50;
 const int button_window_width = 60;
-enum program_modes { interactive, paused, printing };
+enum class program_modes { interactive, paused, printing };
 
 // local helper functions
 float get_depth_scale(device dev);
@@ -168,7 +168,7 @@ int main(int, char**) try
 
         switch (program_mode)
         {
-        case interactive:
+        case program_modes::interactive:
         {
             // we block the application until a frameset is available
             frameset frameset = pipe.wait_for_frames();
@@ -259,7 +259,7 @@ int main(int, char**) try
             break;
         }
 
-        case paused:
+        case program_modes::paused:
         {
             // if we have a new image to process
             if (process_image)
@@ -307,7 +307,7 @@ int main(int, char**) try
             break;
         }
 
-        case printing:
+        case program_modes::printing:
         {
             // if we have a tsp to process
             if (process_tsp)
@@ -558,32 +558,32 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
     // If not printing, display print button
     switch (program_mode) 
     {
-    case interactive:
+    case program_modes::interactive:
         ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
         if (ImGui::Button("start", { button_width, button_height }))
-            program_mode = paused;
+            program_mode = program_modes::paused;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Click 'start' to capture the current image");
         break;
 
-    case paused:
+    case program_modes::paused:
         ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
         if (ImGui::Button("cancel", { button_width, button_height }))
-            program_mode = interactive;
+            program_mode = program_modes::interactive;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Click 'cancel' to choose a different image");
 
         ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 + button_height / 2 + 5 });
         if (ImGui::Button("draw", { button_width, button_height }))
-            program_mode = printing;
+            program_mode = program_modes::printing;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Click 'draw' to begin drawing your picture");
         break;
 
-    case printing:
+    case program_modes::printing:
         ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
         if (ImGui::Button("cancel", { button_width, button_height }))
-            program_mode = interactive;
+            program_mode = program_modes::interactive;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Click 'cancel' to stop the current drawing and start over");
 
