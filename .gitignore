@@ -1,6 +1,16 @@
 # Build directories
 build/
+x64/
+Debug/
+Release/
+
+# Visual Studio/code files
+.vs/
 .vscode/
+*.user
+
+# misc files specific to this project
+imgui.ini
 
 # Prerequisites
 *.d

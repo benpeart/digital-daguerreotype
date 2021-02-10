@@ -157,10 +157,9 @@ int main(int, char**) try
 
         // clear the open gl frame buffer
         int display_w, display_h;
-        ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
-        glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+        glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Take dimensions of the window for rendering purposes
@@ -213,7 +212,7 @@ int main(int, char**) try
             // mirror the image to make it easier to center yourself 
             flip(display_image, display_image, 1);
 
-            // render the "other_frame" which is an altered frame, stripped from its background
+            // render the flipped foreground only image and cache it in an OpenGL texture
             x = (w - other_frame.get_width()) / 2;
             y = (h - other_frame.get_height()) / 2;
             display_texture = mat_to_gl_texture(display_image, display_texture);
@@ -271,14 +270,19 @@ int main(int, char**) try
                 Rect box(Point(x, y), Size(inWidth, inHeight));
                 Mat crop(display_image, box);
 
-                // start converting cv:Mat to a vector of TSP points
-                cancellation_token = false;
-                async_tsp = std::async(std::launch::async, mat_to_tsp, crop, std::ref(cancellation_token));
-                process_tsp = true;
+                // save the image we need to process to generate the TSP path
+                print_image = crop;
+                imshow("print image", print_image);
 
                 // Cache the cropped OpenGL texture so we don't have to created it every loop
-                display_texture = mat_to_gl_texture(crop, display_texture);
+                // do this _before_ we start doing the image processing on the matrix in mat_to_tsp below
+                display_texture = mat_to_gl_texture(print_image, display_texture);
                 process_image = false;
+
+                // start converting cv:Mat to a vector of TSP points
+                cancellation_token = false;
+                async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token));
+                process_tsp = true;
             }
 
             // render the cached OpenGL texture
@@ -309,7 +313,7 @@ int main(int, char**) try
             if (process_tsp)
             {
                 // check to see if computing the tsp has completed
-                if (async_tsp.wait_for(std::chrono::milliseconds(50)) == future_status::ready)
+                if (async_tsp.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready)
                 {
                     // retrieve the TSP from the background task
                     tsp = async_tsp.get();
@@ -354,6 +358,10 @@ int main(int, char**) try
             break;
         }
         }
+
+        // debugging code since imshow doesn't run correctly in a worker thread
+        if (!print_image.empty())
+            imshow("debugging", print_image);
 
         // If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
         // you may need to backup/reset/restore other state, e.g. for current shader using the commented lines below.

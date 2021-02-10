@@ -6,8 +6,6 @@
 #include <vector>
 #include <atomic>
 
-using namespace std;
-
-typedef vector<cv::Point> Path;
+typedef std::vector<cv::Point> Path;
 
 extern Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled);
