@@ -8,7 +8,7 @@
 using namespace cv;
 using namespace std::chrono;
 
-void ColorQuantize(cv::Mat& image, int k)
+void colorQuantize(cv::Mat& image, int k)
 {
     // https://answers.opencv.org/question/182006/opencv-c-k-means-color-clustering/
     // convert to float & reshape to a [3 x W*H] Mat 
@@ -26,10 +26,37 @@ void ColorQuantize(cv::Mat& image, int k)
     data = data.reshape(image.channels(), data.rows);
 
     // replace pixel values with their center value:
-    Vec3f* p = data.ptr<Vec3f>();
-    for (size_t i = 0; i < data.rows; i++) {
-        int center_id = labels.at<int>(i);
-        p[i] = centers.at<Vec3f>(center_id);
+    switch (image.channels())
+    {
+    case 1:
+    {
+        float* p = data.ptr<float>();
+        for (size_t i = 0; i < data.rows; i++) {
+            int center_id = labels.at<int>(i);
+            p[i] = centers.at<float>(center_id);
+        }
+        break;
+    }
+
+    case 2:
+    {
+        Vec2f* p = data.ptr<Vec2f>();
+        for (size_t i = 0; i < data.rows; i++) {
+            int center_id = labels.at<int>(i);
+            p[i] = centers.at<Vec2f>(center_id);
+        }
+        break;
+    }
+
+    case 3:
+    {
+        Vec3f* p = data.ptr<Vec3f>();
+        for (size_t i = 0; i < data.rows; i++) {
+            int center_id = labels.at<int>(i);
+            p[i] = centers.at<Vec3f>(center_id);
+        }
+        break;
+    }
     }
 
     // back to 2d, and uchar:
@@ -52,14 +79,15 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
         return tsp;
 
     // image = ColorQuantize[image, 2] - reduce the number of colors used to represent the image to 2 with dithering
-    ColorQuantize(image, 2);
+    colorQuantize(image, 2);
     if (cancelled)
         return tsp;
 
-/*
-    image = ImageAdjust[image] (* push colors to 0 or 255 *)
+    // image = ImageAdjust[image] - convert image to black and white
+    adaptiveThreshold(image, image, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 31, 15);
     if (cancelled)
         return tsp;
+/*
     pos = PixelValuePositions[image,0]; (* collect positions of all black pixels *)
     if (cancelled)
         return tsp;

@@ -272,7 +272,18 @@ int main(int, char**) try
 
                 // save the image we need to process to generate the TSP path
                 print_image = crop;
+
+                // debugging
+                extern void colorQuantize(cv::Mat& image, int k);
                 imshow("print image", print_image);
+                print_image.convertTo(print_image, -1, 2.5);
+                imshow("ImageAdjust", print_image);
+                cvtColor(print_image, print_image, COLOR_BGR2GRAY);
+                imshow("ColorConvert", print_image);
+                colorQuantize(print_image, 2);
+                imshow("ColorQuantize", print_image);
+                threshold(print_image, print_image, 50, 255, THRESH_BINARY | THRESH_OTSU);
+                imshow("ImageAdjust 2", print_image);
 
                 // Cache the cropped OpenGL texture so we don't have to created it every loop
                 // do this _before_ we start doing the image processing on the matrix in mat_to_tsp below
@@ -281,7 +292,7 @@ int main(int, char**) try
 
                 // start converting cv:Mat to a vector of TSP points
                 cancellation_token = false;
-                async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token));
+                //async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token));
                 process_tsp = true;
             }
 
@@ -358,10 +369,6 @@ int main(int, char**) try
             break;
         }
         }
-
-        // debugging code since imshow doesn't run correctly in a worker thread
-        if (!print_image.empty())
-            imshow("debugging", print_image);
 
         // If you are using this code with non-legacy OpenGL header/contexts (which you should not, prefer using imgui_impl_opengl3.cpp!!),
         // you may need to backup/reset/restore other state, e.g. for current shader using the commented lines below.
