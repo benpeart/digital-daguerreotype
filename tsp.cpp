@@ -70,7 +70,7 @@ int findMinRoute(vector<vector<int> > tsp)
 	for (j = 0; j < tsp.size(); j++)
 	{
 
-		if ((i != j) && tsp[i][j] < min) 
+		if ((i != j) && tsp[i][j] < min)
 		{
 			min = tsp[i][j];
 			route[counter] = j + 1;
