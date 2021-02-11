@@ -273,20 +273,6 @@ int main(int, char**) try
 				// save the image we need to process to generate the TSP path
 				print_image = crop;
 
-#if 0
-				// debugging
-				extern bool Stucki1981(const cv::Mat & src, cv::Mat & dst);
-				imshow("print image", print_image);
-				print_image.convertTo(print_image, -1, 2.25);
-				imshow("ImageAdjust", print_image);
-				cvtColor(print_image, print_image, COLOR_BGR2GRAY);
-				imshow("ColorConvert", print_image);
-				Stucki1981(print_image, print_image);
-				imshow("Stucki1981", print_image);
-				threshold(print_image, print_image, 50, 255, THRESH_BINARY | THRESH_OTSU);
-				imshow("ImageAdjust 2", print_image);
-#endif
-
 				// Cache the cropped OpenGL texture so we don't have to created it every loop
 				// do this _before_ we start doing the image processing on the matrix in mat_to_tsp below
 				display_texture = mat_to_gl_texture(print_image, display_texture);
@@ -294,7 +280,12 @@ int main(int, char**) try
 
 				// start converting cv:Mat to a vector of TSP points
 				cancellation_token = false;
-				async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token));
+#ifdef _DEBUG
+				imshow("print image", print_image);
+				tsp = mat_to_tsp(print_image, cancellation_token, true);
+#else
+				async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token), false);
+#endif
 				process_tsp = true;
 			}
 
@@ -325,32 +316,38 @@ int main(int, char**) try
 			// if we have a tsp to process
 			if (process_tsp)
 			{
+				display_image = Mat(Size(inWidth, inHeight), CV_8UC3, Scalar(255, 255, 255));
+
+#ifndef _DEBUG
 				// check to see if computing the tsp has completed
 				if (async_tsp.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready)
+#endif
 				{
 					// retrieve the TSP from the background task
+#ifndef _DEBUG
 					tsp = async_tsp.get();
+#endif
 					process_tsp = false;
 
 					// draw the TSP path as a series of lines to simulate what we'll be outputting
-					display_image = Scalar(255, 255, 255);
 					for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
 					{
 						auto j = i + 1;
 						if (j != tsp.end())
-							cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 2);
+							cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 1);
 					}
 
 					// convert the output to a texture we can use to paint
 					display_texture = mat_to_gl_texture(display_image, display_texture);
 				}
+#ifndef _DEBUG
 				else
 				{
 					// create a 'progress' gl texture to display while the tsp is computed
-					display_image = Scalar(255, 255, 255);
 					cv::putText(display_image, "thinking...", { inWidth / 2, inHeight / 2 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(118, 185, 0), 4);
 					display_texture = mat_to_gl_texture(display_image, display_texture);
 				}
+#endif
 			}
 
 			// render the cached OpenGL texture

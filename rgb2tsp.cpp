@@ -1,12 +1,38 @@
 //
-// Background thread processing of RGB image into <vector> of points in TSP order
+// processing of RGB image into <vector> of points in TSP order
 //
 #include "imgui.h"
 #include "rgb2tsp.hpp"
-#include <chrono>
+#include "tsp.hpp"
 
 using namespace cv;
-using namespace std::chrono;
+
+// returns a vector of pixel positions in src that exactly match the value val.
+std::vector<cv::Point> pixelValuePositions(const cv::Mat& src, uchar val)
+{
+	std::vector<cv::Point> points;
+
+	if (src.type() != CV_8U) {
+		throw std::runtime_error("pixelValuePositions accepts only grayscale image");
+	}
+	if (src.empty()) {
+		throw std::runtime_error("pixelValuePositions image is empty");
+	}
+
+	// processing
+	for (int i = 0; i < src.rows; i++) 
+	{
+		for (int j = 0; j < src.cols; j++) 
+		{
+			uchar tmp = src.ptr<unsigned char>(i)[j];
+			if (src.ptr<unsigned char>(i)[j] == val) {
+				points.push_back({ j, i });
+			}
+		}
+	}
+
+	return points;
+}
 
 // Stucki halftoning processing
 // https://github.com/yunfuliu/pixkit/blob/master/modules/pixkit-image/src/halftoning.cpp
@@ -16,11 +42,9 @@ bool Stucki1981(const cv::Mat& src, cv::Mat& dst)
 	// exception
 	if (src.type() != CV_8U) {
 		throw std::runtime_error("[Stucki1981] accepts only grayscale image");
-		return false;
 	}
 	if (src.empty()) {
 		throw std::runtime_error("[Stucki1981] image is empty");
-		return false;
 	}
 
 	/////////////////////////////////////////////////////////////////////////
@@ -73,56 +97,38 @@ bool Stucki1981(const cv::Mat& src, cv::Mat& dst)
 	return true;
 }
 
-Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
+Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled, bool debug)
 {
-	Path tsp;
+	Path points, tsp;
 
 	// image = ImageAdjust[image, {0,0.9}] - lighten the image to blow out the face highlights
 	image.convertTo(image, -1, 2.25);
+	if (debug)
+		imshow("convertTo", image);
 	if (cancelled)
 		return tsp;
 
 	// ColorConvert[image,"Grayscale"] - converts the color space of image to the specified color space colspace.
 	cvtColor(image, image, COLOR_BGR2GRAY);
+	if (debug)
+		imshow("cvtColor", image);
 	if (cancelled)
 		return tsp;
 
 	// Stucki halftoning processing
 	Stucki1981(image, image);
+	if (debug)
+		imshow("Stucki1981", image);
 	if (cancelled)
 		return tsp;
 
-	// image = ImageAdjust[image] - convert image to black and white
-	adaptiveThreshold(image, image, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 31, 15);
+	// collect positions of all black pixels
+	points = pixelValuePositions(image, 0);
 	if (cancelled)
 		return tsp;
 
-	/*
-		pos = PixelValuePositions[image,0]; (* collect positions of all black pixels *)
-		if (cancelled)
-			return tsp;
-		res = FindShortestTour[pos]; (* Use TSP to find path between all black pixels *)
-	*/
-
-	// Make sure that function takes a few seconds to complete
-	std::this_thread::sleep_for(seconds(5));
-	if (cancelled)
-		return tsp;
-
-	// create some dummy points just to have something to draw
-	tsp.push_back({ 10, 10 });
-	tsp.push_back({ 20, 10 });
-	tsp.push_back({ 20, 20 });
-	tsp.push_back({ 30, 20 });
-	tsp.push_back({ 30, 30 });
-	tsp.push_back({ 40, 30 });
-	tsp.push_back({ 40, 40 });
-	tsp.push_back({ 50, 40 });
-	tsp.push_back({ 50, 50 });
-	tsp.push_back({ 60, 50 });
-	tsp.push_back({ 60, 60 });
-	if (cancelled)
-		return tsp;
+	// Use TSP to find shortest continuous path between all black pixels
+	tsp = findShortestTour(points);
 
 	return tsp;
 }

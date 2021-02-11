@@ -5,11 +5,21 @@
 
 // D:\src\opencv\sources\samples\cpp\travelsalesman.cpp
 
+#include "tsp.hpp"
 #include <vector>
 #include <map>
 #include <climits>
 
 using namespace std;
+
+std::vector<cv::Point> findShortestTour(const std::vector<cv::Point>& points)
+{
+	std::vector<cv::Point> tsp;
+
+	// 'wait' for findShortestTour a few seconds
+//	std::this_thread::sleep_for(std::chrono::seconds(5));
+	return points;
+}
 
 // Function to find the minimum cost path for all the paths
 int findMinRoute(vector<vector<int> > tsp)
