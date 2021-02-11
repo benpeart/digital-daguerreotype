@@ -18,6 +18,12 @@
 using namespace rs2;
 using namespace cv;
 
+// cheap hack to determine if building for raspberry pi
+#ifdef __arm__
+#define RASPBERRYPI
+#define NO_ASYNC
+#endif
+
 // default screen resolution
 const int screenWidth = 800;
 const int screenHeight = 480;
@@ -93,7 +99,7 @@ int main(int, char**) try
 	if (!glfwInit())
 		return 1;
 	const auto window_name = "Digital Daguerreotype";
-#ifdef RASPBERRY
+#ifdef RASPBERRYPI
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
@@ -114,7 +120,7 @@ int main(int, char**) try
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
-#ifdef RASPBERRY
+#ifdef RASPBERRYPI
 	io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;           // Enable touchscreen
 #endif
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
@@ -209,7 +215,7 @@ int main(int, char**) try
 			// cancel any background tasks
 			cancellation_token = true;
 
-			// mirror the image to make it easier to center yourself 
+			// mirror the image to make it easier to center yourself
 			flip(display_image, display_image, 1);
 
 			// render the flipped foreground only image and cache it in an OpenGL texture
@@ -281,8 +287,14 @@ int main(int, char**) try
 				// start converting cv:Mat to a vector of TSP points
 				cancellation_token = false;
 #ifdef _DEBUG
-				imshow("print image", print_image);
-				tsp = mat_to_tsp(print_image, cancellation_token, true);
+				bool debug = true;
+#else
+				bool debug = false;
+#endif
+#ifdef NO_ASYNC
+				if (debug)
+					imshow("print image", print_image);
+				tsp = mat_to_tsp(print_image, cancellation_token, debug);
 #else
 				async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token), false);
 #endif
@@ -318,13 +330,13 @@ int main(int, char**) try
 			{
 				display_image = Mat(Size(inWidth, inHeight), CV_8UC3, Scalar(255, 255, 255));
 
-#ifndef _DEBUG
+#ifndef NO_ASYNC
 				// check to see if computing the tsp has completed
 				if (async_tsp.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready)
 #endif
 				{
 					// retrieve the TSP from the background task
-#ifndef _DEBUG
+#ifndef NO_ASYNC
 					tsp = async_tsp.get();
 #endif
 					process_tsp = false;
@@ -340,7 +352,7 @@ int main(int, char**) try
 					// convert the output to a texture we can use to paint
 					display_texture = mat_to_gl_texture(display_image, display_texture);
 				}
-#ifndef _DEBUG
+#ifndef NO_ASYNC
 				else
 				{
 					// create a 'progress' gl texture to display while the tsp is computed
