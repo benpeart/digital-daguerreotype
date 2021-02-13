@@ -64,7 +64,9 @@ bool Stucki1981(const cv::Mat& src, cv::Mat& dst)
 	tdst1f.convertTo(tdst1f, CV_32FC1);
 
 	// processing
-	for (int i = 0; i < src.rows; i++) {
+	// BUG BUG: for some reason, this sets a bunch of pixels in the last row to black.
+	// Stop one row short to avoid this.
+	for (int i = 0; i < src.rows - 1; i++) {
 		for (int j = 0; j < src.cols; j++) {
 
 			float error;

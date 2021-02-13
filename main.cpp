@@ -11,6 +11,7 @@
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <thread>
+#include <vector>
 #include <future>
 #include "rgb2tsp.hpp"
 #include "texture.h"
@@ -304,7 +305,6 @@ int main(int, char**) try
 				process_tsp = true;
 			}
 
-			int count = tsp.size();
 			// render the cached OpenGL texture
 			x = (w - inWidth) / 2;
 			y = (h - inHeight) / 2;
