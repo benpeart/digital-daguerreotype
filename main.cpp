@@ -23,6 +23,9 @@ using namespace cv;
 #define RASPBERRYPI
 #define NO_ASYNC
 #endif
+#ifdef _DEBUG
+#define NO_ASYNC
+#endif
 
 // default screen resolution
 const int screenWidth = 800;
@@ -301,6 +304,7 @@ int main(int, char**) try
 				process_tsp = true;
 			}
 
+			int count = tsp.size();
 			// render the cached OpenGL texture
 			x = (w - inWidth) / 2;
 			y = (h - inHeight) / 2;

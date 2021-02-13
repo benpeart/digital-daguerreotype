@@ -3,19 +3,23 @@
 //
 #include "imgui.h"
 #include "rgb2tsp.hpp"
-#include "tsp.hpp"
+#include <fstream>
+#include <stdlib.h>
 
 using namespace cv;
+using namespace std;
 
 // returns a vector of pixel positions in src that exactly match the value val.
 std::vector<cv::Point> pixelValuePositions(const cv::Mat& src, uchar val)
 {
 	std::vector<cv::Point> points;
 
-	if (src.type() != CV_8U) {
+	if (src.type() != CV_8U) 
+	{
 		throw std::runtime_error("pixelValuePositions accepts only grayscale image");
 	}
-	if (src.empty()) {
+	if (src.empty()) 
+	{
 		throw std::runtime_error("pixelValuePositions image is empty");
 	}
 
@@ -96,6 +100,89 @@ bool Stucki1981(const cv::Mat& src, cv::Mat& dst)
 	tdst1f.convertTo(dst, CV_8UC1);
 	return true;
 }
+
+// Spawn Concorde to calculate tour between all pixels
+std::vector<cv::Point> findShortestTour(Path& points)
+{
+	int counter = 1;
+	ofstream f;
+	ifstream g;
+	int error;
+	Path tour;
+
+	// output file header
+	f.open("digital-daguerreotype.tsp", fstream::out);
+	f << "NAME: digital daguerreotype" << endl;
+	f << "TYPE : TSP" << endl;
+	f << "DIMENSION : " << points.size() << endl;
+	f << "EDGE_WEIGHT_TYPE : EUC_2D" << endl;
+	f << "NODE_COORD_SECTION" << endl;
+
+	// output a valid .tsp file for post processing
+	for (Path::iterator i = points.begin(); i != points.end(); ++i)
+	{
+		f << counter++ << " ";
+		f << (*i).x << " ";
+		f << (*i).y;
+		f << endl;
+	}
+	f.close();
+
+#ifndef KDTREE
+	// now spawn Concorde to create a tour
+	error = system("linkern -Q -t 15 -o digital-daguerreotype.tour digital-daguerreotype.tsp");
+	if (error)
+		throw std::runtime_error("error spawning linkern");
+
+	// convert the tour file to a Path and return it
+	g.open("digital-daguerreotype.tour", fstream::in);
+	if (g)
+	{
+		int count, x, y, z;
+
+		g >> count;
+		g >> z;
+
+		for (int i = 0; i < count; i++)
+		{
+			g >> x;
+			g >> y;
+			g >> z;
+
+			tour.push_back(points[x]);
+			tour.push_back(points[y]);
+		}
+
+		g.close();
+	}
+#else
+	// now spawn Concorde to create a tour
+	error = system("kdtree -j -o digital-daguerreotype.tour digital-daguerreotype.tsp");
+	if (error)
+		throw std::runtime_error("error spawning linkern");
+
+	// convert the tour file to a Path and return it
+	g.open("digital-daguerreotype.tour", fstream::in);
+	if (g)
+	{
+		int count, a, b;
+
+		g >> count;
+
+		for (int i = 0; i < count; i++)
+		{
+			g >> a;
+
+			tour.push_back(points[a]);
+		}
+
+		g.close();
+	}
+#endif
+
+	return tour;
+}
+
 
 Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled, bool debug)
 {
