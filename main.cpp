@@ -40,8 +40,8 @@ const int inHeight = 420;
 
 // constants for UI control placement and state
 const int window_gap = 5;
-const int slider_window_width = 50;
-const int button_window_width = 60;
+const int slider_window_width = 80;
+const int button_window_width = 80;
 enum class program_modes { interactive, computing, ready, printing };
 
 // local helper functions
@@ -280,6 +280,9 @@ int main(int, char**) try
 			// if we have a new image to process
 			if (process_image)
 			{
+				// flip the image back so text is readable
+				flip(display_image, display_image, 1);
+
 				// Crop the image
 				x = (display_image.cols - inWidth) / 2;
 				y = (display_image.rows - inHeight) / 2;
@@ -351,10 +354,6 @@ int main(int, char**) try
 			ImGui_ImplOpenGL2_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
-
-			// draw the clipping rectangle centered on the image
-			auto draw = ImGui::GetBackgroundDrawList();
-			draw->AddRect(ImVec2((float)x, (float)y), ImVec2((float)x + inWidth, (float)y + inHeight), ImColor(0, 255, 0));
 
 			// Using ImGui library to provide print/confirm/cancel buttons
 			render_buttons({ (float)w - window_gap - button_window_width, window_gap, button_window_width, (float)h - window_gap * 2 }, pipe, program_mode);
@@ -555,8 +554,8 @@ void render_slider(rect location, float& clipping_dist)
 
 void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_mode)
 {
-	const int button_width = 50;
-	const int button_height = 50;
+	const float button_width = location.w - 2 * window_gap;
+	const float button_height = location.h / 2 - 2 * window_gap;
 
 	// Some trickery to display the control nicely
 	static const int flags = ImGuiWindowFlags_NoCollapse
@@ -581,7 +580,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 	switch (program_mode)
 	{
 	case program_modes::interactive:
-		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
+		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("start", { button_width, button_height }))
 			program_mode = program_modes::computing;
 		if (ImGui::IsItemHovered())
@@ -589,7 +588,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 		break;
 
 	case program_modes::computing:
-		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
+		ImGui::SetCursorPos({ window_gap, window_gap});
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
 		if (ImGui::IsItemHovered())
@@ -597,13 +596,13 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 		break;
 
 	case program_modes::ready:
-		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
+		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'cancel' to choose a different image");
 
-		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 + button_height / 2 + 5 });
+		ImGui::SetCursorPos({ window_gap, location.h / 2 + window_gap });
 		if (ImGui::Button("draw", { button_width, button_height }))
 			program_mode = program_modes::printing;
 		if (ImGui::IsItemHovered())
@@ -611,7 +610,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 		break;
 
 	case program_modes::printing:
-		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
+		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
 		if (ImGui::IsItemHovered())

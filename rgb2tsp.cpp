@@ -132,7 +132,7 @@ std::vector<cv::Point> findShortestTour(Path& points)
 
 #ifndef KDTREE
 	// now spawn Concorde to create a tour
-	error = system("linkern -Q -t 15 -o digital-daguerreotype.tour digital-daguerreotype.tsp");
+	error = system("linkern -Q -t 5 -o digital-daguerreotype.tour digital-daguerreotype.tsp");
 	if (error)
 		throw std::runtime_error("error spawning linkern");
 
