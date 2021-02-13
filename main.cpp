@@ -24,6 +24,8 @@ using namespace cv;
 #define RASPBERRYPI
 #define NO_ASYNC
 #endif
+
+// calling imshow (to show the intermediate images) doesn't work from a background thread
 #ifdef _DEBUG
 #define NO_ASYNC
 #endif
@@ -40,7 +42,7 @@ const int inHeight = 420;
 const int window_gap = 5;
 const int slider_window_width = 50;
 const int button_window_width = 60;
-enum class program_modes { interactive, paused, printing };
+enum class program_modes { interactive, computing, ready, printing };
 
 // local helper functions
 float get_depth_scale(device dev);
@@ -217,6 +219,8 @@ int main(int, char**) try
 			process_image = true;
 
 			// cancel any background tasks
+			// BUGBUG: this doesn't currently actually cancel/kill the background task so if you create 
+			// a new one before it finishes, things get weird (it should get ignored at worst)
 			cancellation_token = true;
 
 			// mirror the image to make it easier to center yourself
@@ -269,8 +273,10 @@ int main(int, char**) try
 			break;
 		}
 
-		case program_modes::paused:
+		case program_modes::computing:
+		case program_modes::ready:
 		{
+			// BUGBUG: the 'draw' button should not appear until we've got the tsp
 			// if we have a new image to process
 			if (process_image)
 			{
@@ -305,6 +311,37 @@ int main(int, char**) try
 				process_tsp = true;
 			}
 
+			// if we have a tsp to process
+			if (process_tsp)
+			{
+#ifndef NO_ASYNC
+				// check to see if computing the tsp has completed
+				if (async_tsp.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready)
+#endif
+				{
+					// retrieve the TSP from the background task
+#ifndef NO_ASYNC
+					tsp = async_tsp.get();
+#endif
+					process_tsp = false;
+
+					// draw the TSP path as a series of lines to simulate what we'll be outputting
+					display_image = Mat(Size(inWidth, inHeight), CV_8UC3, Scalar(255, 255, 255));
+					for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
+					{
+						auto j = i + 1;
+						if (j != tsp.end())
+							cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 1);
+					}
+
+					// convert the output to a texture we can use to paint
+					display_texture = mat_to_gl_texture(display_image, display_texture);
+
+					// we're ready to draw the image
+					program_mode = program_modes::ready;
+				}
+			}
+
 			// render the cached OpenGL texture
 			x = (w - inWidth) / 2;
 			y = (h - inHeight) / 2;
@@ -329,43 +366,6 @@ int main(int, char**) try
 
 		case program_modes::printing:
 		{
-			// if we have a tsp to process
-			if (process_tsp)
-			{
-				display_image = Mat(Size(inWidth, inHeight), CV_8UC3, Scalar(255, 255, 255));
-
-#ifndef NO_ASYNC
-				// check to see if computing the tsp has completed
-				if (async_tsp.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready)
-#endif
-				{
-					// retrieve the TSP from the background task
-#ifndef NO_ASYNC
-					tsp = async_tsp.get();
-#endif
-					process_tsp = false;
-
-					// draw the TSP path as a series of lines to simulate what we'll be outputting
-					for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
-					{
-						auto j = i + 1;
-						if (j != tsp.end())
-							cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 1);
-					}
-
-					// convert the output to a texture we can use to paint
-					display_texture = mat_to_gl_texture(display_image, display_texture);
-				}
-#ifndef NO_ASYNC
-				else
-				{
-					// create a 'progress' gl texture to display while the tsp is computed
-					cv::putText(display_image, "thinking...", { inWidth / 2, inHeight / 2 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, CV_RGB(118, 185, 0), 4);
-					display_texture = mat_to_gl_texture(display_image, display_texture);
-				}
-#endif
-			}
-
 			// render the cached OpenGL texture
 			x = (w - inWidth) / 2;
 			y = (h - inHeight) / 2;
@@ -583,12 +583,20 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 	case program_modes::interactive:
 		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
 		if (ImGui::Button("start", { button_width, button_height }))
-			program_mode = program_modes::paused;
+			program_mode = program_modes::computing;
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'start' to capture the current image");
 		break;
 
-	case program_modes::paused:
+	case program_modes::computing:
+		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
+		if (ImGui::Button("cancel", { button_width, button_height }))
+			program_mode = program_modes::interactive;
+		if (ImGui::IsItemHovered())
+			ImGui::SetTooltip("Click 'cancel' to choose a different image");
+		break;
+
+	case program_modes::ready:
 		ImGui::SetCursorPos({ location.w / 2 - button_width / 2, location.h / 2 - button_height / 2 });
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
