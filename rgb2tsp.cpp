@@ -130,7 +130,6 @@ std::vector<cv::Point> findShortestTour(Path& points)
 	}
 	f.close();
 
-#ifndef KDTREE
 	// now spawn Concorde to create a tour
 	error = system("linkern -Q -t 5 -o digital-daguerreotype.tour digital-daguerreotype.tsp");
 	if (error)
@@ -157,30 +156,6 @@ std::vector<cv::Point> findShortestTour(Path& points)
 
 		g.close();
 	}
-#else
-	// now spawn Concorde to create a tour
-	error = system("kdtree -j -o digital-daguerreotype.tour digital-daguerreotype.tsp");
-	if (error)
-		throw std::runtime_error("error spawning linkern");
-
-	// convert the tour file to a Path and return it
-	g.open("digital-daguerreotype.tour", fstream::in);
-	if (g)
-	{
-		int count, a, b;
-
-		g >> count;
-
-		for (int i = 0; i < count; i++)
-		{
-			g >> a;
-
-			tour.push_back(points[a]);
-		}
-
-		g.close();
-	}
-#endif
 
 	return tour;
 }
@@ -221,61 +196,3 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled, bool debug)
 
 	return tsp;
 }
-
-#if 0
-void colorQuantize(cv::Mat& image, int k)
-{
-	// https://answers.opencv.org/question/182006/opencv-c-k-means-color-clustering/
-	// convert to float & reshape to a [3 x W*H] Mat 
-	//  (so every pixel is on a row of it's own)
-	Mat data;
-	image.convertTo(data, CV_32F);
-	data = data.reshape(1, data.total());
-
-	// do kmeans
-	Mat labels, centers;
-	kmeans(data, k, labels, TermCriteria(TermCriteria::MAX_ITER, 10, 1.0), 3, KMEANS_PP_CENTERS, centers);
-
-	// reshape both to a single row of Vec3f pixels:
-	centers = centers.reshape(image.channels(), centers.rows);
-	data = data.reshape(image.channels(), data.rows);
-
-	// replace pixel values with their center value:
-	switch (image.channels())
-	{
-	case 1:
-	{
-		float* p = data.ptr<float>();
-		for (size_t i = 0; i < data.rows; i++) {
-			int center_id = labels.at<int>(i);
-			p[i] = centers.at<float>(center_id);
-		}
-		break;
-	}
-
-	case 2:
-	{
-		Vec2f* p = data.ptr<Vec2f>();
-		for (size_t i = 0; i < data.rows; i++) {
-			int center_id = labels.at<int>(i);
-			p[i] = centers.at<Vec2f>(center_id);
-		}
-		break;
-	}
-
-	case 3:
-	{
-		Vec3f* p = data.ptr<Vec3f>();
-		for (size_t i = 0; i < data.rows; i++) {
-			int center_id = labels.at<int>(i);
-			p[i] = centers.at<Vec3f>(center_id);
-		}
-		break;
-	}
-	}
-
-	// back to 2d, and uchar:
-	image = data.reshape(image.channels(), image.rows);
-	image.convertTo(image, CV_8U);
-}
-#endif
