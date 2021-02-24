@@ -389,20 +389,29 @@ int main(int, char**) try
 				f << "$J=G91 G21 X10 Y-10 F3000" << endl;	// move to 10mm x 10mm
 				f << "G92 X0 Y0 Z0" << endl;// Change the current coordinates without moving
 				f << "G90" << endl;		// use absolute coordinates from the program's origin
-				//f << "G28.1" << endl;	// save this location for a later G28 home command
+				f << "G28.1" << endl;	// save this location for a later G28 home command
 				f << "G21" << endl;		// programming in mm
 				f << "G1 F3000" << endl;// set a feed rate (determines move speed)
 				f << "$1=255" << endl;	// tell motors to prevent moving when stationary (step idle delay)
-				//f << "$130=200.000" << endl;// set maximum travel for X axis im mm
-				//f << "$131=380.000" << endl;// set maximum travel for Y axis im mm
-				//f << "$132=040.000" << endl;// set maximum travel for Z axis im mm
-				//f << "$20=1" << endl;	// turn on soft limits
-				// G1 G91 G21 X10 Y-10 Z5 F1000
+
+				/* set soft limits to prevent exceeding the capabilities of the device
+				f << "$130=200.000" << endl;// set maximum travel for X axis im mm
+				f << "$131=380.000" << endl;// set maximum travel for Y axis im mm
+				f << "$132=040.000" << endl;// set maximum travel for Z axis im mm
+				f << "$20=1" << endl;	// turn on soft limits
+				*/
+
+				// move to the first point in the TSP with the pen up then lower the pen
+				float x = (float)tsp[0].x * easWidthMM / easWidthPixels;
+				float y = (float)tsp[0].y * easHeightMM / easHeightPixels;
+				f << "G1" << " X" << x << " Y" << -y << " Z0" << endl;
+				f << "G1 Z5" << endl;
+
 				// move to each point in the TSP
 				for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
 				{
-					float x = (float)(*i).x * easWidthMM / easWidthPixels;
-					float y = (float)(*i).y * easHeightMM / easHeightPixels;
+					x = (float)(*i).x * easWidthMM / easWidthPixels;
+					y = (float)(*i).y * easHeightMM / easHeightPixels;
 
 					// output each point as the next position to move to (invert the Y coordinate)
 					f << "G1" << " X" << x << " Y" << -y << " Z5" << endl;
@@ -410,7 +419,7 @@ int main(int, char**) try
 
 				f << "G1 Z0" << endl;	// lift the pen
 				f << "$1=254" << endl;	// step idle delay, milliseconds
-				//f << "G28" << endl;		// return to home position
+				f << "G28" << endl;		// return to home position
 				f.close();
 
 				// now spawn gcode-cli to copy the gcode file to the CNC machine
