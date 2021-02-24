@@ -34,8 +34,8 @@ using namespace cv;
 // large Etch-A-Sketch screen resolution is 607 x 427 pixels (162 mm x 114 mm - roughly 3:2 ratio)
 const int easWidthPixels = 600;
 const int easHeightPixels = 420;
-const int easWidthMM = 162;
-const int easHeightMM = 114;
+const int easWidthMM = 160;
+const int easHeightMM = 110;
 
 // default screen resolution of raspberry pi
 const int screenWidth = 800;
@@ -387,17 +387,17 @@ int main(int, char**) try
 				f << "$H" << endl;		// run homing cycle
 				f << "$J=G91 G21 Z0 F3000" << endl;	// lift the pen
 				f << "$J=G91 G21 X10 Y-10 F3000" << endl;	// move to 10mm x 10mm
-				f << "G28.1" << endl;	// save this location for a later G28 home command
+				f << "G92 X0 Y0 Z0" << endl;// Change the current coordinates without moving
+				f << "G90" << endl;		// use absolute coordinates from the program's origin
+				//f << "G28.1" << endl;	// save this location for a later G28 home command
 				f << "G21" << endl;		// programming in mm
 				f << "G1 F3000" << endl;// set a feed rate (determines move speed)
-				f << "G90" << endl;		// use absolute coordinates from the program's origin
-				f << "G01" << endl;		// linear interpolation between startand end points
 				f << "$1=255" << endl;	// tell motors to prevent moving when stationary (step idle delay)
-				//f << "$130=300.000" << endl;// set maximum travel for X axis im mm
-				//f << "$131=500.000" << endl;// set maximum travel for Y axis im mm
-				//f << "$132=500.000" << endl;// set maximum travel for Z axis im mm
+				//f << "$130=200.000" << endl;// set maximum travel for X axis im mm
+				//f << "$131=380.000" << endl;// set maximum travel for Y axis im mm
+				//f << "$132=040.000" << endl;// set maximum travel for Z axis im mm
 				//f << "$20=1" << endl;	// turn on soft limits
-
+				// G1 G91 G21 X10 Y-10 Z5 F1000
 				// move to each point in the TSP
 				for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
 				{
@@ -410,7 +410,7 @@ int main(int, char**) try
 
 				f << "G1 Z0" << endl;	// lift the pen
 				f << "$1=254" << endl;	// step idle delay, milliseconds
-				f << "G28" << endl;		// return to home position
+				//f << "G28" << endl;		// return to home position
 				f.close();
 
 				// now spawn gcode-cli to copy the gcode file to the CNC machine
