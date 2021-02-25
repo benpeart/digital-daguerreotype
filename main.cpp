@@ -47,6 +47,10 @@ const int slider_window_width = 80;
 const int button_window_width = 80;
 enum class program_modes { interactive, computing, ready, printing };
 
+// enable threads to be canceled
+std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(true);
+std::atomic_bool thread_running = ATOMIC_VAR_INIT(false);
+
 // local helper functions
 float get_depth_scale(device dev);
 rs2_stream find_stream_to_align(const std::vector<stream_profile>& streams);
@@ -55,10 +59,13 @@ void remove_background(rs2::video_frame& other_frame, const rs2::depth_frame& de
 void render_slider(rect location, float& clipping_dist);
 void render_buttons(rect location, rs2::pipeline& pipe, program_modes& mode);
 
+void *print_gcode(void *tsp);
+
 static void glfw_error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
+
 
 int main(int, char**) try
 {
@@ -70,7 +77,6 @@ int main(int, char**) try
 
 	// The TSP we generate for the captured image
 	Path tsp;
-	std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(false);
 
 	// the OpenCV image we will draw
 	Mat display_image, print_image;
@@ -184,6 +190,11 @@ int main(int, char**) try
 		{
 		case program_modes::interactive:
 		{
+			// cancel any background tasks
+			// BUGBUG: this doesn't currently actually cancel/kill the background task so if you create 
+			// a new one before it finishes, things get weird (it should get ignored at worst)
+			cancellation_token = true;
+
 			// we block the application until a frameset is available
 			frameset frameset = pipe.wait_for_frames();
 
@@ -219,11 +230,6 @@ int main(int, char**) try
 
 			// we will need to process this image before printing
 			process_image = true;
-
-			// cancel any background tasks
-			// BUGBUG: this doesn't currently actually cancel/kill the background task so if you create 
-			// a new one before it finishes, things get weird (it should get ignored at worst)
-			cancellation_token = true;
 
 			// mirror the image to make it easier to center yourself
 			flip(display_image, display_image, 1);
@@ -351,71 +357,29 @@ int main(int, char**) try
 			// output gcode for TSP
 			if (output_gcode)
 			{
-				const char *portname = "/dev/ttyUSB0";
-				int fd;
-				char buf[256], *p;
-				int len;
-				float x, y;
+				// create a thread to output the gcode
+				pthread_t gcode_thread;
+				int rc;
 
-				// open the serial port to the CNC machine
-				fd = gcode_open(portname);
-				if (-1 == fd)
-					goto ErrorExit;
-
-				// initilizae grbl state
-				if (gcode_write(fd, "$H\n"))	// run homing cycle
-					goto ErrorExit;
-				if (gcode_write(fd, "G00 G91 G21 Z-5 F3000\n"))	// lift the pen
-					goto ErrorExit;
-				if (gcode_write(fd, "G00 G91 G21 X10 Y-10 Z0 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
-					goto ErrorExit;
-				if (gcode_write(fd, "G92 X0 Y0 Z0\n"))	// Change the current coordinates without moving
-					goto ErrorExit;
-				if (gcode_write(fd, "G90\n"))	// use absolute coordinates from the program's origin
-					goto ErrorExit;
-				if (gcode_write(fd, "G21\n"))	// programming in mm
-					goto ErrorExit;
-				if (gcode_write(fd, "G1 F3000\n"))	// set a feed rate (determines move speed)
-					goto ErrorExit;
-//				if (gcode_write(fd, "$1=255\n"))	// tell motors to prevent moving when stationary (step idle delay)
-//					goto ErrorExit;
-
-				// move to the first point in the TSP with the pen up then lower the pen
-				x = (float)tsp[0].x * easWidthMM / easWidthPixels;
-				y = (float)tsp[0].y * easHeightMM / easHeightPixels;
-				sprintf(buf, "G1 X%f Y%f Z0\n", x, -y);
-				if (gcode_write(fd, buf))
-					goto ErrorExit;
-				if (gcode_write(fd, "G1 Z5\n"))
-					goto ErrorExit;
-
-				// move from point to point in the TSP
-				for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
+				// initialize thread flow control now so it's correct before the thread even starts
+				cancellation_token = false;
+				thread_running = true;
+				rc = pthread_create(&gcode_thread, NULL, print_gcode, (void *)&tsp);
+				if (rc)
 				{
-					// output each point as the next position to move to (invert the Y coordinate)
-					x = (float)(*i).x * easWidthMM / easWidthPixels;
-					y = (float)(*i).y * easHeightMM / easHeightPixels;
-					sprintf(buf, "G1 X%f Y%f Z5\n", x, -y);
-					if (gcode_write(fd, buf))
-						goto ErrorExit;
+					fprintf(stderr, "Error %d creating gcode print thread.\n", rc);
+					thread_running = false;
+					program_mode = program_modes::interactive;
 				}
 
-				// reset the CNC to a safe location
-//				if (gcode_write(fd, "$1=254\n"))	// step idle delay, milliseconds
-//					goto ErrorExit;
-				if (gcode_write(fd, "G00 G90 G21 Z0 F3000\n"))	// lift the pen
-					goto ErrorExit;
-				if (gcode_write(fd, "G00 G90 G21 X10 Y-10 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
-					goto ErrorExit;
+				output_gcode = false;
+			}
 
-				// give grbl enough time to complete these last commands before we close the port
-				sleep(100);
-ErrorExit:
-				gcode_close(fd);
-
+			// if the print thread has completed
+			if (!thread_running)
+			{
 				// we're ready to start with a new  picture
 				program_mode = program_modes::interactive;
-				output_gcode = false;
 			}
 
 			// render the cached OpenGL texture
@@ -459,6 +423,7 @@ ErrorExit:
 	glfwTerminate();
 
 	pipe.stop();
+	pthread_exit(NULL);
 
 	return 0;
 }
@@ -666,7 +631,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 
 	case program_modes::printing:
 		ImGui::SetCursorPos({ window_gap, window_gap });
-		if (ImGui::Button("cancel", { button_width, button_height }))
+		if (ImGui::Button("cancel", { button_width, button_height })) 
 			program_mode = program_modes::interactive;
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'cancel' to stop the current drawing and start over");
@@ -677,4 +642,76 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 	ImGui::PopStyleColor(4);
 	ImGui::PopStyleVar();
 	ImGui::End();
+}
+
+void *print_gcode(void *arg)
+{
+	Path *tsp = (Path *)arg;
+	const char *portname = "/dev/ttyUSB0";
+	int fd;
+	char buf[256], *p;
+	int len;
+	float x, y;
+
+	// open the serial port to the CNC machine
+	fd = gcode_open(portname);
+	if (-1 == fd)
+		goto ErrorExit;
+
+	// initilizae grbl state
+	if (gcode_write(fd, "$H\n"))	// run homing cycle
+		goto ErrorExit;
+	if (gcode_write(fd, "G00 G91 G21 Z-5 F3000\n"))	// lift the pen
+		goto ErrorExit;
+	if (gcode_write(fd, "G00 G91 G21 X10 Y-10 Z0 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
+		goto ErrorExit;
+	if (gcode_write(fd, "G92 X0 Y0 Z0\n"))	// Change the current coordinates without moving
+		goto ErrorExit;
+	if (gcode_write(fd, "G90\n"))	// use absolute coordinates from the program's origin
+		goto ErrorExit;
+	if (gcode_write(fd, "G21\n"))	// programming in mm
+		goto ErrorExit;
+	if (gcode_write(fd, "G1 F3000\n"))	// set a feed rate (determines move speed)
+		goto ErrorExit;
+//	if (gcode_write(fd, "$1=255\n"))	// tell motors to prevent moving when stationary (step idle delay)
+//		goto ErrorExit;
+
+	// move to the first point in the TSP with the pen up then lower the pen
+	x = (float)(*tsp)[0].x * easWidthMM / easWidthPixels;
+	y = (float)(*tsp)[0].y * easHeightMM / easHeightPixels;
+	sprintf(buf, "G1 X%f Y%f Z0\n", x, -y);
+	if (gcode_write(fd, buf))
+		goto ErrorExit;
+	if (gcode_write(fd, "G1 Z5\n"))
+		goto ErrorExit;
+
+	// move from point to point in the TSP
+	for (Path::iterator i = (*tsp).begin(); i != (*tsp).end(); ++i)
+	{
+		// output each point as the next position to move to (invert the Y coordinate)
+		x = (float)(*i).x * easWidthMM / easWidthPixels;
+		y = (float)(*i).y * easHeightMM / easHeightPixels;
+		sprintf(buf, "G1 X%f Y%f Z5\n", x, -y);
+		if (gcode_write(fd, buf))
+			goto ErrorExit;
+
+		// if we've been asked to cancel, bail out early
+		if (cancellation_token)
+			goto ErrorExit;
+	}
+
+ErrorExit:
+	// reset the CNC to a safe location
+//	if (gcode_write(fd, "$1=254\n"))	// step idle delay, milliseconds
+//		goto ErrorExit;
+	gcode_write(fd, "G00 G90 G21 Z0 F3000\n");	// lift the pen
+	gcode_write(fd, "G00 G90 G21 X10 Y-10 F3000\n");	// move to 10mm x 10mm to avoid the limit switches
+
+	// give grbl enough time to complete these last commands before we close the port
+	sleep(100);
+	gcode_close(fd);
+
+	// exit the thread cleanly
+	thread_running = false;
+	pthread_exit(NULL);
 }
