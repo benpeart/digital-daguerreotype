@@ -8,11 +8,6 @@
 #define RASPBERRYPI
 #endif
 
-// calling imshow (to show the intermediate images) doesn't work from a background thread
-#ifdef _DEBUG
-#define NO_ASYNC
-#endif
-
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl2.h"
@@ -60,7 +55,6 @@ bool profile_changed(const std::vector<stream_profile>& current, const std::vect
 void remove_background(rs2::video_frame& other_frame, const rs2::depth_frame& depth_frame, float depth_scale, float clipping_dist);
 void render_slider(rect location, float& clipping_dist);
 void render_buttons(rect location, rs2::pipeline& pipe, program_modes& mode);
-
 void *print_gcode(void *tsp);
 
 static void glfw_error_callback(int error, const char* description)
@@ -191,9 +185,7 @@ int main(int, char**) try
 		{
 		case program_modes::interactive:
 		{
-			// cancel any background tasks
-			// BUGBUG: this doesn't currently actually cancel/kill the background task so if you create 
-			// a new one before it finishes, things get weird (it should get ignored at worst)
+			// cancel any background tasks as we're going to be capuring a new image
 			cancellation_token = true;
 
 			// we block the application until a frameset is available
