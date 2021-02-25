@@ -162,6 +162,7 @@ copy "D:\src\opencv\build\x64\vc15\bin\opencv_world451.dll" "$(TargetDir)"</Comm
     <ClCompile Include="..\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="gcode.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="rgb2tsp.cpp" />
   </ItemGroup>

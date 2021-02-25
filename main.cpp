@@ -3,6 +3,16 @@
 // that can be used to generate gcode and be sent to a laser etcher or a gcode enabled Etch-A-Sketch
 //
 
+// cheap hack to determine if building for raspberry pi
+#ifdef __arm__
+#define RASPBERRYPI
+#endif
+
+// calling imshow (to show the intermediate images) doesn't work from a background thread
+#ifdef _DEBUG
+#define NO_ASYNC
+#endif
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl2.h"
@@ -16,20 +26,12 @@
 #include <thread>
 #include <vector>
 #include <future>
+#ifdef RASPBERRYPI
 #include <unistd.h>
+#endif
 
 using namespace rs2;
 using namespace cv;
-
-// cheap hack to determine if building for raspberry pi
-#ifdef __arm__
-#define RASPBERRYPI
-#endif
-
-// calling imshow (to show the intermediate images) doesn't work from a background thread
-#ifdef _DEBUG
-#define NO_ASYNC
-#endif
 
 // large Etch-A-Sketch screen resolution is 607 x 427 pixels (162 mm x 114 mm - roughly 3:2 ratio)
 const int easWidthPixels = 600;
@@ -65,7 +67,6 @@ static void glfw_error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
-
 
 int main(int, char**) try
 {
@@ -357,6 +358,7 @@ int main(int, char**) try
 			// output gcode for TSP
 			if (output_gcode)
 			{
+#ifdef RASPBERRYPI
 				// create a thread to output the gcode
 				pthread_t gcode_thread;
 				int rc;
@@ -371,7 +373,7 @@ int main(int, char**) try
 					thread_running = false;
 					program_mode = program_modes::interactive;
 				}
-
+#endif
 				output_gcode = false;
 			}
 
@@ -423,8 +425,6 @@ int main(int, char**) try
 	glfwTerminate();
 
 	pipe.stop();
-	pthread_exit(NULL);
-
 	return 0;
 }
 catch (const rs2::error& e)
@@ -646,6 +646,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 
 void *print_gcode(void *arg)
 {
+#ifdef RASPBERRYPI
 	Path *tsp = (Path *)arg;
 	const char *portname = "/dev/ttyUSB0";
 	int fd;
@@ -714,4 +715,6 @@ ErrorExit:
 	// exit the thread cleanly
 	thread_running = false;
 	pthread_exit(NULL);
+#endif
+	return NULL;
 }

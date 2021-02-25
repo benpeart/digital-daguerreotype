@@ -1,3 +1,5 @@
+// cheap hack to determine if building for raspberry pi
+#ifdef __arm__
 #include "gcode.h"
 #include <errno.h>
 #include <fcntl.h> 
@@ -163,3 +165,5 @@ void gcode_close(int fd)
 {
     close(fd);
 }
+
+#endif
