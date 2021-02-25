@@ -2,7 +2,7 @@
 // processing of RGB image into <vector> of points in TSP order
 //
 #include "imgui.h"
-#include "rgb2tsp.hpp"
+#include "rgb2tsp.h"
 #include <fstream>
 #include <stdlib.h>
 

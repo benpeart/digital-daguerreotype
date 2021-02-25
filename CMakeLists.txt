@@ -49,7 +49,7 @@ find_package(OpenGL REQUIRED)
 
 
 # Add source for digital-daguerreotype
-target_sources(${PROJECT_NAME} PRIVATE main.cpp rgb2tsp.cpp)
+target_sources(${PROJECT_NAME} PRIVATE main.cpp rgb2tsp.cpp gcode.cpp)
 
 
 target_link_libraries(${PROJECT_NAME}

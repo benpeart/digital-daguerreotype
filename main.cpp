@@ -10,22 +10,13 @@
 #include <opencv2/opencv.hpp>   // Include OpenCV API
 #include <GLFW/glfw3.h>
 #include <stdio.h>
-#include "rgb2tsp.hpp"
+#include "rgb2tsp.h"
 #include "texture.h"
-#include <fstream>
+#include "gcode.h"
 #include <thread>
 #include <vector>
 #include <future>
-
-// serial IO
-#include <errno.h>
-#include <fcntl.h> 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <termios.h>
 #include <unistd.h>
-#include <sys/time.h>
 
 using namespace rs2;
 using namespace cv;
@@ -64,19 +55,10 @@ bool profile_changed(const std::vector<stream_profile>& current, const std::vect
 void remove_background(rs2::video_frame& other_frame, const rs2::depth_frame& depth_frame, float depth_scale, float clipping_dist);
 void render_slider(rect location, float& clipping_dist);
 void render_buttons(rect location, rs2::pipeline& pipe, program_modes& mode);
-int set_interface_attribs(int fd, int speed);
-int DiscardPendingInput(int fd, int timeout_ms, bool echo_received_data);
-int write_gcode(int fd, const char *gcode);
 
 static void glfw_error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Glfw Error %d: %s\n", error, description);
-}
-
- int64_t get_time_ms() {
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
-    return (int64_t) tv.tv_sec * 1000 + (int64_t) tv.tv_usec / 1000;
 }
 
 int main(int, char**) try
@@ -89,14 +71,17 @@ int main(int, char**) try
 	GLuint display_texture;
 
 	// asynchronously calculate a TSP for the given image matrix
-	std::future<Path> async_tsp;
-	std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(false);
+#ifdef NO_ASYNC
 	Path tsp;
+#else
+	std::future<Path> async_tsp;
+#endif
+	std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(false);
 
 	// create OpenGL texture to use for caching image to be displayed
 	glGenTextures(1, &display_texture);
 
-	// Create booleans to control GUI (printing - show 'printing to file' text)
+	// Track the state of the program - what step are we currently in?
 	program_modes program_mode = program_modes::interactive;
 
 	// Create a pipeline to easily configure and start the camera
@@ -401,66 +386,61 @@ int main(int, char**) try
 				int len;
 				float x, y;
 
-				fd = open(portname, O_RDWR | O_NOCTTY | O_SYNC);
-				if (fd < 0) {
-					fprintf(stderr, "Error opening %s: %s\n", portname, strerror(errno));
-					return -1;
-				}
-
-				/*baudrate 115200, 8 bits, no parity, 1 stop bit */
-				set_interface_attribs(fd, B115200);
-
-				// If there is some initial chatter (like the grbl connect message), ignore it, until there is some time
-				// silence on the wire. That way, we only get OK responses to our requests.
-				DiscardPendingInput(fd, 3000, true);
+				// open the serial port to the CNC machine
+				fd = gcode_open(portname);
+				if (-1 == fd)
+					goto ErrorExit;
 
 				// initilizae grbl state
-				if (write_gcode(fd, "$H\n"))	// run homing cycle
+				if (gcode_write(fd, "$H\n"))	// run homing cycle
 					goto ErrorExit;
-				if (write_gcode(fd, "G00 G91 G21 Z-5 F3000\n"))	// lift the pen
+				if (gcode_write(fd, "G00 G91 G21 Z-5 F3000\n"))	// lift the pen
 					goto ErrorExit;
-				if (write_gcode(fd, "G00 G91 G21 X10 Y-10 Z0 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
+				if (gcode_write(fd, "G00 G91 G21 X10 Y-10 Z0 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
 					goto ErrorExit;
-				if (write_gcode(fd, "G92 X0 Y0 Z0\n"))	// Change the current coordinates without moving
+				if (gcode_write(fd, "G92 X0 Y0 Z0\n"))	// Change the current coordinates without moving
 					goto ErrorExit;
-				if (write_gcode(fd, "G90\n"))	// use absolute coordinates from the program's origin
+				if (gcode_write(fd, "G90\n"))	// use absolute coordinates from the program's origin
 					goto ErrorExit;
-				if (write_gcode(fd, "G21\n"))	// programming in mm
+				if (gcode_write(fd, "G21\n"))	// programming in mm
 					goto ErrorExit;
-				if (write_gcode(fd, "G1 F3000\n"))	// set a feed rate (determines move speed)
+				if (gcode_write(fd, "G1 F3000\n"))	// set a feed rate (determines move speed)
 					goto ErrorExit;
-//				if (write_gcode(fd, "$1=255\n"))	// tell motors to prevent moving when stationary (step idle delay)
+//				if (gcode_write(fd, "$1=255\n"))	// tell motors to prevent moving when stationary (step idle delay)
 //					goto ErrorExit;
 
 				// move to the first point in the TSP with the pen up then lower the pen
 				x = (float)tsp[0].x * easWidthMM / easWidthPixels;
 				y = (float)tsp[0].y * easHeightMM / easHeightPixels;
 				sprintf(buf, "G1 X%f Y%f Z0\n", x, -y);
-				if (write_gcode(fd, buf))
+				if (gcode_write(fd, buf))
 					goto ErrorExit;
-				if (write_gcode(fd, "G1 Z5\n"))
+				if (gcode_write(fd, "G1 Z5\n"))
 					goto ErrorExit;
 
-				// move to each point in the TSP
+				// move from point to point in the TSP
 				for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
 				{
 					// output each point as the next position to move to (invert the Y coordinate)
 					x = (float)(*i).x * easWidthMM / easWidthPixels;
 					y = (float)(*i).y * easHeightMM / easHeightPixels;
 					sprintf(buf, "G1 X%f Y%f Z5\n", x, -y);
-					if (write_gcode(fd, buf))
+					if (gcode_write(fd, buf))
 						goto ErrorExit;
 				}
 
-//				if (write_gcode(fd, "$1=254\n"))	// step idle delay, milliseconds
+				// reset the CNC to a safe location
+//				if (gcode_write(fd, "$1=254\n"))	// step idle delay, milliseconds
 //					goto ErrorExit;
-				if (write_gcode(fd, "G00 G90 G21 Z0 F3000\n"))	// lift the pen
+				if (gcode_write(fd, "G00 G90 G21 Z0 F3000\n"))	// lift the pen
 					goto ErrorExit;
-				if (write_gcode(fd, "G00 G90 G21 X10 Y-10 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
+				if (gcode_write(fd, "G00 G90 G21 X10 Y-10 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
 					goto ErrorExit;
 
+				// give grbl enough time to complete these last commands before we close the port
+				sleep(100);
 ErrorExit:
-				close(fd);
+				 gcode_close(fd);
 #endif
 				// don't output the gcode (and do the print) until we capture a new picture
 				output_gcode = false;
@@ -505,6 +485,8 @@ ErrorExit:
 	glDeleteTextures(1, &display_texture);
 	glfwDestroyWindow(window);
 	glfwTerminate();
+
+	pipe.stop();
 
 	return 0;
 }
@@ -723,128 +705,4 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 	ImGui::PopStyleColor(4);
 	ImGui::PopStyleVar();
 	ImGui::End();
-}
-
-int set_interface_attribs(int fd, int speed)
-{
-    struct termios tty;
-
-    if (tcgetattr(fd, &tty) < 0) {
-        fprintf(stderr, "Error from tcgetattr: %s\n", strerror(errno));
-        return -1;
-    }
-
-    cfsetospeed(&tty, (speed_t)speed);
-    cfsetispeed(&tty, (speed_t)speed);
-
-    tty.c_cflag |= CLOCAL | CREAD;
-    tty.c_cflag &= ~CSIZE;
-    tty.c_cflag |= CS8;         /* 8-bit characters */
-    tty.c_cflag &= ~PARENB;     /* no parity bit */
-    tty.c_cflag &= ~CSTOPB;     /* only need 1 stop bit */
-    tty.c_cflag &= ~CRTSCTS;    /* no hardware flowcontrol */
-
-    tty.c_lflag |= ICANON | ISIG;  /* canonical input */
-    tty.c_lflag &= ~(ECHO | ECHOE | ECHONL | IEXTEN);
-
-    tty.c_iflag &= ~IGNCR;  /* preserve carriage return */
-    tty.c_iflag &= ~INPCK;
-    tty.c_iflag &= ~(INLCR | ICRNL | IUCLC | IMAXBEL);
-    tty.c_iflag &= ~(IXON | IXOFF | IXANY);   /* no SW flowcontrol */
-
-    tty.c_oflag &= ~OPOST;
-
-    tty.c_cc[VEOL] = 0;
-    tty.c_cc[VEOL2] = 0;
-    tty.c_cc[VEOF] = 0x04;
-
-    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-        fprintf(stderr, "Error from tcsetattr: %s\n", strerror(errno));
-        return -1;
-    }
-	
-    return 0;
-}
-
-int write_gcode(int fd, const char *gcode)
-{
-	int wlen, len;
-	char buf[256];
-
-#ifndef _DEBUG
-	printf(gcode);
-#endif
-	len = strlen(gcode);
-	wlen = write(fd, gcode, len);
-	if (wlen != len)
-	{
-		fprintf(stderr, "Error from write: %d, %s\n", wlen, strerror(errno));
-		return -1;
-	}
-
-	/* delay for output */
-	tcdrain(fd);
-
-	/* wait for "ok" response */
-	len = read(fd, buf, sizeof(buf) - 1);
-	if (len > 0) 
-	{
-		buf[len] = 0;
-		if (!strncasecmp(buf, "ok", 2))
-			return 0;
-
-		buf[strlen(buf) - 1] = 0; // remove the trailing \n
-		fprintf(stderr, "Read \"%s\" but expected \"ok\"\n", buf);
-	} 
-	else if (len < 0) 
-	{
-		fprintf(stderr, "Error from read: %d: %s\n", len, strerror(errno));
-	} 
-	else /* len == 0 */
-	{
-		fprintf(stderr, "Nothing read. EOF?\n");
-	}               
-
-	return -1;
-}
-
-// Wait for input to become ready for read or timeout reached.
-// If the file-descriptor becomes readable, returns number of milli-seconds
-// left.
-// Returns 0 on timeout (i.e. no millis left and nothing to be read).
-// Returns -1 on error.
-static int AwaitReadReady(int fd, int timeout_millis) {
-    fd_set read_fds;
-    FD_ZERO(&read_fds);
-    FD_SET(fd, &read_fds);
-
-    struct timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = timeout_millis * 1000;
-
-    FD_SET(fd, &read_fds);
-    int s = select(fd + 1, &read_fds, NULL, NULL, &tv);
-    if (s < 0)
-        return -1;
-
-    return tv.tv_usec / 1000;
-}
-
-int DiscardPendingInput(int fd, int timeout_ms, bool echo_received_data) 
-{
-    if (fd < 0) return 0;
-    int total_bytes = 0;
-    char buf[128];
-    while (AwaitReadReady(fd, timeout_ms) > 0) {
-        int r = read(fd, buf, sizeof(buf));
-        if (r < 0) {
-            perror("reading trouble");
-            return -1;
-        }
-        total_bytes += r;
-        if (r > 0 && echo_received_data) {
-            write(STDERR_FILENO, buf, r);
-        }
-    }
-    return total_bytes;
 }
