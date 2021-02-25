@@ -310,8 +310,12 @@ int main(int, char**) try
 #ifdef _DEBUG
 				imshow("print image", print_image);
 #endif
+				// if the tsp is empty for some reason, try capturing a new image
 				tsp = mat_to_tsp(print_image, cancellation_token);
-				process_tsp = true;
+				if (tsp.empty())
+					program_mode = program_modes::interactive;
+				else
+					process_tsp = true;
 			}
 
 			// if we have a tsp to process
@@ -708,8 +712,9 @@ ErrorExit:
 	gcode_write(fd, "G00 G90 G21 Z0 F3000\n");	// lift the pen
 	gcode_write(fd, "G00 G90 G21 X10 Y-10 F3000\n");	// move to 10mm x 10mm to avoid the limit switches
 
-	// give grbl enough time to complete these last commands before we close the port
-	sleep(100);
+	// give grbl enough time to complete these last commands before we
+	// close the port as it will abort any command in progress
+	sleep(2);
 	gcode_close(fd);
 
 	// exit the thread cleanly

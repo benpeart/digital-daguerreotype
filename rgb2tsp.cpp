@@ -193,7 +193,11 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
 	points = pixelValuePositions(image, 0);
 	if (cancelled)
 		return tsp;
+	if (points.size() < 2)
+		return tsp;
 
 	// Use TSP to find shortest continuous path between all black pixels
-	return findShortestTour(points);
+	tsp = findShortestTour(points);
+
+	return tsp;
 }
