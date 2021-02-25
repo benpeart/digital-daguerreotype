@@ -24,7 +24,6 @@ using namespace cv;
 // cheap hack to determine if building for raspberry pi
 #ifdef __arm__
 #define RASPBERRYPI
-#define NO_ASYNC
 #endif
 
 // calling imshow (to show the intermediate images) doesn't work from a background thread
@@ -63,26 +62,22 @@ static void glfw_error_callback(int error, const char* description)
 
 int main(int, char**) try
 {
+	// Track the state of the program - what step are we currently in?
+	program_modes program_mode = program_modes::interactive;
+	bool process_image = false;
+	bool process_tsp = false;
+	bool output_gcode = false;
+
+	// The TSP we generate for the captured image
+	Path tsp;
+	std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(false);
+
 	// the OpenCV image we will draw
 	Mat display_image, print_image;
-	bool process_image = true;
-	bool process_tsp = false;
-	bool output_gcode = true;
 	GLuint display_texture;
-
-	// asynchronously calculate a TSP for the given image matrix
-#ifdef NO_ASYNC
-	Path tsp;
-#else
-	std::future<Path> async_tsp;
-#endif
-	std::atomic_bool cancellation_token = ATOMIC_VAR_INIT(false);
 
 	// create OpenGL texture to use for caching image to be displayed
 	glGenTextures(1, &display_texture);
-
-	// Track the state of the program - what step are we currently in?
-	program_modes program_mode = program_modes::interactive;
 
 	// Create a pipeline to easily configure and start the camera
 	pipeline pipe;
@@ -166,7 +161,7 @@ int main(int, char**) try
 	// Main loop
 	while (!glfwWindowShouldClose(window))
 	{
-		int x, y;
+		int x, y, w, h;
 
 		// Poll and handle events (inputs, window resize, etc.)
 		// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
@@ -183,16 +178,12 @@ int main(int, char**) try
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Take dimensions of the window for rendering purposes
-		int w, h;
 		glfwGetWindowSize(window, &w, &h);
 
 		switch (program_mode)
 		{
 		case program_modes::interactive:
 		{
-			// reset the output flag
-			output_gcode = true;
-
 			// we block the application until a frameset is available
 			frameset frameset = pipe.wait_for_frames();
 
@@ -287,7 +278,6 @@ int main(int, char**) try
 		case program_modes::computing:
 		case program_modes::ready:
 		{
-			// BUGBUG: the 'draw' button should not appear until we've got the tsp
 			// if we have a new image to process
 			if (process_image)
 			{
@@ -311,49 +301,31 @@ int main(int, char**) try
 				// start converting cv:Mat to a vector of TSP points
 				cancellation_token = false;
 #ifdef _DEBUG
-				bool debug = true;
-#else
-				bool debug = false;
+				imshow("print image", print_image);
 #endif
-#ifdef NO_ASYNC
-				if (debug)
-					imshow("print image", print_image);
-				tsp = mat_to_tsp(print_image, cancellation_token, debug);
-#else
-				async_tsp = std::async(std::launch::async, mat_to_tsp, print_image, std::ref(cancellation_token), false);
-#endif
+				tsp = mat_to_tsp(print_image, cancellation_token);
 				process_tsp = true;
 			}
 
 			// if we have a tsp to process
 			if (process_tsp)
 			{
-#ifndef NO_ASYNC
-				// check to see if computing the tsp has completed
-				if (async_tsp.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready)
-#endif
+				// draw the TSP path as a series of lines to simulate what we'll be outputting
+				display_image = Mat(Size(easWidthPixels, easHeightPixels), CV_8UC3, Scalar(255, 255, 255));
+				for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
 				{
-					// retrieve the TSP from the background task
-#ifndef NO_ASYNC
-					tsp = async_tsp.get();
-#endif
-					process_tsp = false;
-
-					// draw the TSP path as a series of lines to simulate what we'll be outputting
-					display_image = Mat(Size(easWidthPixels, easHeightPixels), CV_8UC3, Scalar(255, 255, 255));
-					for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
-					{
-						auto j = i + 1;
-						if (j != tsp.end())
-							cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 1);
-					}
-
-					// convert the output to a texture we can use to paint
-					display_texture = mat_to_gl_texture(display_image, display_texture);
-
-					// we're ready to draw the image
-					program_mode = program_modes::ready;
+					auto j = i + 1;
+					if (j != tsp.end())
+						cv::line(display_image, *i, *j, cv::Scalar(0, 0, 0), 1);
 				}
+
+				// convert the output to a texture we can use to paint
+				display_texture = mat_to_gl_texture(display_image, display_texture);
+
+				// we're ready to draw the image
+				program_mode = program_modes::ready;
+				process_tsp = false;
+				output_gcode = true;
 			}
 
 			// render the cached OpenGL texture
@@ -379,7 +351,6 @@ int main(int, char**) try
 			// output gcode for TSP
 			if (output_gcode)
 			{
-#ifdef RASPBERRYPI
 				const char *portname = "/dev/ttyUSB0";
 				int fd;
 				char buf[256], *p;
@@ -440,9 +411,10 @@ int main(int, char**) try
 				// give grbl enough time to complete these last commands before we close the port
 				sleep(100);
 ErrorExit:
-				 gcode_close(fd);
-#endif
-				// don't output the gcode (and do the print) until we capture a new picture
+				gcode_close(fd);
+
+				// we're ready to start with a new  picture
+				program_mode = program_modes::interactive;
 				output_gcode = false;
 			}
 

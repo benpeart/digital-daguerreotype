@@ -122,7 +122,7 @@ int gcode_write(int fd, const char *gcode)
 	int wlen, len;
 	char buf[256];
 
-#ifndef _DEBUG
+#ifdef _DEBUG
 	printf(gcode);
 #endif
 	len = strlen(gcode);

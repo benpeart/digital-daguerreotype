@@ -161,28 +161,31 @@ std::vector<cv::Point> findShortestTour(Path& points)
 }
 
 
-Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled, bool debug)
+Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled)
 {
 	Path points, tsp;
 
 	// image = ImageAdjust[image, {0,0.9}] - lighten the image to blow out the face highlights
 	image.convertTo(image, -1, 2.25);
-	if (debug)
-		imshow("convertTo", image);
+#ifdef _DEBUG
+	imshow("convertTo", image);
+#endif
 	if (cancelled)
 		return tsp;
 
 	// ColorConvert[image,"Grayscale"] - converts the color space of image to the specified color space colspace.
 	cvtColor(image, image, COLOR_BGR2GRAY);
-	if (debug)
-		imshow("cvtColor", image);
+#ifdef _DEBUG
+	imshow("cvtColor", image);
+#endif
 	if (cancelled)
 		return tsp;
 
 	// Stucki halftoning processing
 	Stucki1981(image, image);
-	if (debug)
-		imshow("Stucki1981", image);
+#ifdef _DEBUG
+	imshow("Stucki1981", image);
+#endif
 	if (cancelled)
 		return tsp;
 
@@ -192,7 +195,5 @@ Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled, bool debug)
 		return tsp;
 
 	// Use TSP to find shortest continuous path between all black pixels
-	tsp = findShortestTour(points);
-
-	return tsp;
+	return findShortestTour(points);
 }

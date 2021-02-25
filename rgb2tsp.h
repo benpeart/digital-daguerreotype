@@ -8,4 +8,4 @@
 
 typedef std::vector<cv::Point> Path;
 
-extern Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled, bool debug = false);
+extern Path mat_to_tsp(cv::Mat& image, const std::atomic_bool& cancelled);
