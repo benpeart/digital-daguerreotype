@@ -1,3 +1,4 @@
+
 //
 // An application to capture an image from an Intel RealSense camera and convert it to TSP Art
 // that can be used to generate gcode and be sent to a laser etcher or a gcode enabled Etch-A-Sketch
@@ -33,15 +34,24 @@
 using namespace rs2;
 using namespace cv;
 
-// large Etch-A-Sketch screen resolution is 607 x 427 pixels (162 mm x 114 mm - roughly 3:2 ratio)
-const int easWidthPixels = 600;
-const int easHeightPixels = 420;
-const int easWidthMM = 160;
-const int easHeightMM = 110;
+// Intel RealSense D415 Camera specs:
+// RGB frame resolution: 1920 × 1080
+// Depth output resolution: Up to 1280 × 720
 
-// default screen resolution of raspberry pi
+// The raspberry pi screen resolution is 800 x 480
 const int screenWidth = 800;
 const int screenHeight = 480;
+
+// The input width/height should be less than the screen and camera resolution
+const int inputWidthPixels = 720;
+const int inputHeightPixels = 480;
+
+// Large Etch-A-Sketch screen size is 160 mm x 110 mm (600 x 420 pixels - roughly 3:2 ratio)
+// Printable area on 8.5" / 11" paper is 250 mm x 180 mm
+// The output width/height ratio should be the same as the input ratio to prevent warping the image
+const int outputWidthMM = 250;
+const int outputHeightMM = 167;
+
 
 // constants for UI control placement and state
 const int window_gap = 5;
@@ -245,11 +255,11 @@ int main(int, char**) try
 			if (w >= 1024)
 			{
 				// render the depth frame, as a picture-in-picture
-				x = (w - easWidthPixels) / 2;
-				y = (h - easHeightPixels) / 2;
-				rect pip_stream{ 0, 0, (float)easWidthPixels / 2, (float)easHeightPixels / 2 };
+				x = (w - inputWidthPixels) / 2;
+				y = (h - inputHeightPixels) / 2;
+				rect pip_stream{ 0, 0, (float)inputWidthPixels / 2, (float)inputHeightPixels / 2 };
 				pip_stream = pip_stream.adjust_ratio({ static_cast<float>(aligned_depth_frame.get_width()),static_cast<float>(aligned_depth_frame.get_height()) });
-				pip_stream.x = (float)x + easWidthPixels + window_gap;
+				pip_stream.x = (float)x + inputWidthPixels + window_gap;
 				pip_stream.y = (float)y;
 
 				// Render depth (as picture in picture)
@@ -266,10 +276,10 @@ int main(int, char**) try
 			ImGui::NewFrame();
 
 			// draw the clipping rectangle centered on the image
-			x = (w - easWidthPixels) / 2;
-			y = (h - easHeightPixels) / 2;
+			x = (w - inputWidthPixels) / 2;
+			y = (h - inputHeightPixels) / 2;
 			auto draw = ImGui::GetBackgroundDrawList();
-			draw->AddRect(ImVec2((float)x, (float)y), ImVec2((float)x + easWidthPixels, (float)y + easHeightPixels), ImColor(0, 255, 0));
+			draw->AddRect(ImVec2((float)x, (float)y), ImVec2((float)x + inputWidthPixels, (float)y + inputHeightPixels), ImColor(0, 255, 0));
 
 			// Using ImGui library to provide a slide controller to select the depth clipping distance
 			render_slider({ window_gap, window_gap, slider_window_width, (float)h - window_gap * 2 }, depth_clipping_distance);
@@ -292,9 +302,9 @@ int main(int, char**) try
 				flip(display_image, display_image, 1);
 
 				// Crop the image
-				x = (display_image.cols - easWidthPixels) / 2;
-				y = (display_image.rows - easHeightPixels) / 2;
-				Rect box(Point(x, y), Size(easWidthPixels, easHeightPixels));
+				x = (display_image.cols - inputWidthPixels) / 2;
+				y = (display_image.rows - inputHeightPixels) / 2;
+				Rect box(Point(x, y), Size(inputWidthPixels, inputHeightPixels));
 				Mat crop(display_image, box);
 
 				// save the image we need to process to generate the TSP path
@@ -322,7 +332,7 @@ int main(int, char**) try
 			if (process_tsp)
 			{
 				// draw the TSP path as a series of lines to simulate what we'll be outputting
-				display_image = Mat(Size(easWidthPixels, easHeightPixels), CV_8UC3, Scalar(255, 255, 255));
+				display_image = Mat(Size(inputWidthPixels, inputHeightPixels), CV_8UC3, Scalar(255, 255, 255));
 				for (Path::iterator i = tsp.begin(); i != tsp.end(); ++i)
 				{
 					auto j = i + 1;
@@ -340,9 +350,9 @@ int main(int, char**) try
 			}
 
 			// render the cached OpenGL texture
-			x = (w - easWidthPixels) / 2;
-			y = (h - easHeightPixels) / 2;
-			render_gl_texture(display_texture, { (float)x, (float)y, (float)easWidthPixels, (float)easHeightPixels });
+			x = (w - inputWidthPixels) / 2;
+			y = (h - inputHeightPixels) / 2;
+			render_gl_texture(display_texture, { (float)x, (float)y, (float)inputWidthPixels, (float)inputHeightPixels });
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL2_NewFrame();
@@ -389,9 +399,9 @@ int main(int, char**) try
 			}
 
 			// render the cached OpenGL texture
-			x = (w - easWidthPixels) / 2;
-			y = (h - easHeightPixels) / 2;
-			render_gl_texture(display_texture, { (float)x, (float)y, (float)easWidthPixels, (float)easHeightPixels });
+			x = (w - inputWidthPixels) / 2;
+			y = (h - inputHeightPixels) / 2;
+			render_gl_texture(display_texture, { (float)x, (float)y, (float)inputWidthPixels, (float)inputHeightPixels });
 
 			// Start the Dear ImGui frame
 			ImGui_ImplOpenGL2_NewFrame();
@@ -682,9 +692,10 @@ void *print_gcode(void *arg)
 //		goto ErrorExit;
 
 	// move to the first point in the TSP with the pen up then lower the pen
-	x = (float)(*tsp)[0].x * easWidthMM / easWidthPixels;
-	y = (float)(*tsp)[0].y * easHeightMM / easHeightPixels;
-	sprintf(buf, "G1 X%f Y%f Z0\n", x, -y);
+	// I'm flipping the x and y axis to match my CNC machine orientation
+	x = (float)(*tsp)[0].x * outputWidthMM / inputWidthPixels;
+	y = (float)(*tsp)[0].y * outputHeightMM / inputHeightPixels;
+	sprintf(buf, "G1 X%f Y%f Z0\n", y, x-outputWidthMM);
 	if (gcode_write(fd, buf))
 		goto ErrorExit;
 	if (gcode_write(fd, "G1 Z5\n"))
@@ -694,9 +705,9 @@ void *print_gcode(void *arg)
 	for (Path::iterator i = (*tsp).begin(); i != (*tsp).end(); ++i)
 	{
 		// output each point as the next position to move to (invert the Y coordinate)
-		x = (float)(*i).x * easWidthMM / easWidthPixels;
-		y = (float)(*i).y * easHeightMM / easHeightPixels;
-		sprintf(buf, "G1 X%f Y%f Z5\n", x, -y);
+		x = (float)(*i).x * outputWidthMM / inputWidthPixels;
+		y = (float)(*i).y * outputHeightMM / inputHeightPixels;
+		sprintf(buf, "G1 X%f Y%f Z5\n", y, x-outputWidthMM);
 		if (gcode_write(fd, buf))
 			goto ErrorExit;
 

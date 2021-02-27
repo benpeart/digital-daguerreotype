@@ -146,8 +146,7 @@ int gcode_write(int fd, const char *gcode)
 		if (!strncasecmp(buf, "ok", 2))
 			return 0;
 
-		buf[strlen(buf) - 1] = 0; // remove the trailing \n
-		fprintf(stderr, "Read \"%s\" but expected \"ok\"\n", buf);
+		fprintf(stderr, "Looking for 'ok' but got '%s'\n", buf);
 	} 
 	else if (len < 0) 
 	{
