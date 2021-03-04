@@ -191,6 +191,16 @@ int main(int, char**) try
 		// Take dimensions of the window for rendering purposes
 		glfwGetWindowSize(window, &w, &h);
 
+		// attempt to load an image from disk (handy when trying to make a video)
+		// if the image is loaded, jump directly into the processing state
+		Mat disk_image = imread("digital-daguerreotype.png");
+		if (!disk_image.empty()) {
+			display_image = disk_image;
+			process_image = true;
+			program_mode = program_modes::computing;
+			rename("digital-daguerreotype.png", "digital-daguerreotype.png.bak");
+		}
+
 		switch (program_mode)
 		{
 		case program_modes::interactive:
