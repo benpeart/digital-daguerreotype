@@ -64,21 +64,21 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\src\glfw\include;D:\src\imgui;D:\src\imgui\backends;D:\src\librealsense\include;D:\src\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\src\glfw\build\src\Debug;D:\src\librealsense\build\Debug;$(LibraryPath);D:\src\opencv\build\x64\vc15\lib</LibraryPath>
+    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;..\librealsense\include;..\opencv\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\glfw\build\src\Debug;..\librealsense\build\Debug;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\src\glfw\include;D:\src\imgui;D:\src\imgui\backends;D:\src\librealsense\include;D:\src\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\src\glfw\build\src\Release;D:\src\librealsense\build\Release;$(LibraryPath);D:\src\opencv\build\x64\vc15\lib</LibraryPath>
+    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;..\librealsense\include;..\opencv\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\glfw\build\src\Release;..\librealsense\build\Release;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>D:\src\glfw\include;D:\src\imgui;D:\src\imgui\backends;D:\src\librealsense\include;D:\src\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\src\glfw\build\src\Debug;D:\src\librealsense\build\Debug;$(LibraryPath);D:\src\opencv\build\x64\vc15\lib</LibraryPath>
+    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;..\librealsense\include;..\opencv\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\glfw\build\src\Debug;..\librealsense\build\Debug;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>D:\src\glfw\include;D:\src\imgui;D:\src\imgui\backends;D:\src\librealsense\include;D:\src\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\src\glfw\build\src\Release;D:\src\librealsense\build\Release;$(LibraryPath);D:\src\opencv\build\x64\vc15\lib</LibraryPath>
+    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;..\librealsense\include;..\opencv\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\glfw\build\src\Release;..\librealsense\build\Release;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
