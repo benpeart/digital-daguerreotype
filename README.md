@@ -1,11 +1,8 @@
 # Digital-Daguerreotype
 An application for the Raspberry Pi that will capture an image and convert it to a black and white image made up from a single continuous line (TSP art) then sends that as gcode to an attached CNC device. The Backinmaker ST-2039 drawing CNC was a great target as you get a copy of the picture to take with you.
 
-<<<<<<< HEAD
-=======
 ![Printing](images/printing.png)
 
->>>>>>> c7fe4b876676232d70f9d0ee19304550ab7223d9
 The user interface shows a live feed from the camera until you press the 'start' button. At that point, it freezes the frame and converts it to the TSP art and displays that. The user can then press the 'draw' button to have it sent to the CNC machine for output.
 
 ![Screenshot of capture screen](images/capture_screenshot.png)
@@ -13,20 +10,6 @@ The user interface shows a live feed from the camera until you press the 'start'
 
 # General logic in software
 1.	Use Intel RealSense to extract foreground and remove background
-<<<<<<< HEAD
-2.	Project the extracted foreground to touch screen
-3.	On button press, capture image and project captured image
-4.	Generate a TSP tour for the image
-    a.	Increase the brightness to blow out some of the highlights in the face
-    b.	Convert the image to grayscale
-    c.	Perform Stucki halftoning to get a nice dithered image in black and white
-    d.	Collect the positions of all the black pixels
-    e.	Use Concorde to generate a ‘Quick Boruvka’ + Lin- Kernighan tour of all the pixels
-        i.	Quick Boruvka is very fast but isn’t visually appealing
-        ii.	Following it with a few iterations of Lin-Kernighan further refines the path and can be time limited. 5 seconds seemed to be sufficient to remove artifacts in Quick Boruvka.
-5.	Generate gcode from tour
-6.	Output gcode to CNC device
-=======
 1.	Project the extracted foreground to touch screen
 1.	On button press, capture image and project captured image
 1.	Generate a TSP tour for the image
@@ -34,12 +17,11 @@ The user interface shows a live feed from the camera until you press the 'start'
     1.	Convert the image to grayscale
     1.	Perform Stucki halftoning to get a nice dithered image in black and white
     1.	Collect the positions of all the black pixels
-    1.	Use Concorde to generate a ‘Quick Boruvka’ + 'Lin-Kernighan' tour of all the pixels
-        1.	Quick Boruvka is very fast but isn’t visually appealing
+    1.	Use Concorde to generate a 'Quick Boruvka' + 'Lin-Kernighan' tour of all the pixels
+        1.	Quick Boruvka is very fast but isn't visually appealing
         1.	Following it with a few iterations of Lin-Kernighan further refines the path and can be time limited. 5 seconds seemed to be sufficient to remove artifacts in Quick Boruvka.
 1.	Generate gcode from tour
 1.	Output gcode to CNC device
->>>>>>> c7fe4b876676232d70f9d0ee19304550ab7223d9
 
 # Hardware used
 
@@ -60,17 +42,10 @@ My original  intent was to build a CNC Etch-A-Sketch and output the TSP art to t
 In addition to the source in this repo, you also need some additional libraries to get a working project.
 
 1.	The Intel RealSense SDK for collecting video and depth data
-<<<<<<< HEAD
-2.	OpenCV for image processing
-3.	Dear ImGui (immediate mode GUI library)
-4.	Glfw 3.3 for OpenGL
-5.	Concorde (Traveling Salesman toolset) specifically the linkern command line tool
-=======
 1.	OpenCV for image processing
 1.	Dear ImGui (immediate mode GUI library)
 1.	Glfw 3.3 for OpenGL
 1.	Concorde (Traveling Salesman toolset) specifically the linkern command line tool
->>>>>>> c7fe4b876676232d70f9d0ee19304550ab7223d9
 
 Install and/or build them as per their individual instructions.
 
