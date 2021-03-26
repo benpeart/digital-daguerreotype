@@ -120,6 +120,7 @@ int main(int, char**) try
 		return 1;
 	const auto window_name = "Digital Daguerreotype";
 #ifdef RASPBERRYPI
+	// create the window full screen
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
@@ -129,6 +130,7 @@ int main(int, char**) try
 	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 	GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, window_name, monitor, NULL);
 #else
+	// create the window the size it will be on the Raspberry Pi
 	GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, window_name, NULL, NULL);
 #endif
 	if (window == NULL)
@@ -545,7 +547,7 @@ void remove_background(rs2::video_frame& other_frame, const rs2::depth_frame& de
 				// Calculate the offset in other frame's buffer to current pixel
 				auto offset = depth_pixel_index * other_bpp;
 
-				// Set pixel to "background" color to white
+				// Set "background" pixel color to white
 				std::memset(&p_other_frame[offset], 255, other_bpp);
 			}
 		}
@@ -573,8 +575,12 @@ void render_slider(rect location, float& clipping_dist)
 	ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, (ImU32)ImColor(215.f / 255, 215.0f / 255, 215.0f / 255));
 	auto slider_size = ImVec2(location.w / 4, location.h - (pixels_to_buttom_of_stream_text * 2) - 20);
 	ImGui::VSliderFloat("", slider_size, &clipping_dist, 0.0f, 6.0f, "", ImGuiSliderFlags_None);
+
+	// remove the tool tips for now as they just obscure the image underneath
+#ifdef TOOLTIP
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Depth Clipping Distance: %.3f", clipping_dist);
+#endif
 	ImGui::PopStyleColor(3);
 
 	// Display bars next to slider
@@ -612,46 +618,56 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, { 36 / 255.f, 44 / 255.f, 51 / 255.f, 1 });
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12);
 
-	// If not printing, display print button
+	// display the UI controls based on the current program state
 	switch (program_mode)
 	{
 	case program_modes::interactive:
 		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("start", { button_width, button_height }))
 			program_mode = program_modes::computing;
+
+		// remove the tool tips for now as they just obscure the image underneath
+#ifdef TOOLTIP
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'start' to capture the current image");
+#endif
 		break;
 
 	case program_modes::computing:
 		ImGui::SetCursorPos({ window_gap, window_gap});
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
+#ifdef TOOLTIP
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'cancel' to choose a different image");
+#endif
 		break;
 
 	case program_modes::ready:
 		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
+#ifdef TOOLTIP
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'cancel' to choose a different image");
-
+#endif
 		ImGui::SetCursorPos({ window_gap, location.h / 2 + window_gap });
 		if (ImGui::Button("draw", { button_width, button_height }))
 			program_mode = program_modes::printing;
+#ifdef TOOLTIP
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'draw' to begin drawing your picture");
+#endif
 		break;
 
 	case program_modes::printing:
 		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("cancel", { button_width, button_height })) 
 			program_mode = program_modes::interactive;
+#ifdef TOOLTIP
 		if (ImGui::IsItemHovered())
 			ImGui::SetTooltip("Click 'cancel' to stop the current drawing and start over");
-
+#endif
 		break;
 	}
 
@@ -660,9 +676,9 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 	ImGui::End();
 }
 
+#ifdef RASPBERRYPI
 void *print_gcode(void *arg)
 {
-#ifdef RASPBERRYPI
 	Path *tsp = (Path *)arg;
 	const char *portname = "/dev/ttyUSB0";
 	int fd;
@@ -680,7 +696,7 @@ void *print_gcode(void *arg)
 		goto ErrorExit;
 	if (gcode_write(fd, "G00 G91 G21 Z-5 F3000\n"))	// lift the pen
 		goto ErrorExit;
-	if (gcode_write(fd, "G00 G91 G21 X10 Y-10 Z0 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches
+	if (gcode_write(fd, "G00 G91 G21 X10 Y-10 Z0 F3000\n"))	// move to 10mm x 10mm to avoid the limit switches while drawing
 		goto ErrorExit;
 	if (gcode_write(fd, "G92 X0 Y0 Z0\n"))	// Change the current coordinates without moving
 		goto ErrorExit;
@@ -733,6 +749,6 @@ ErrorExit:
 	// exit the thread cleanly
 	thread_running = false;
 	pthread_exit(NULL);
-#endif
 	return NULL;
 }
+#endif

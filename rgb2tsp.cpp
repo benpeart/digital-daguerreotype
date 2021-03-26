@@ -28,7 +28,6 @@ std::vector<cv::Point> pixelValuePositions(const cv::Mat& src, uchar val)
 	{
 		for (int j = 0; j < src.cols; j++) 
 		{
-			uchar tmp = src.ptr<unsigned char>(i)[j];
 			if (src.ptr<unsigned char>(i)[j] == val) {
 				points.push_back({ j, i });
 			}
@@ -44,10 +43,12 @@ bool Stucki1981(const cv::Mat& src, cv::Mat& dst)
 {
 	//////////////////////////////////////////////////////////////////////////
 	// exception
-	if (src.type() != CV_8U) {
+	if (src.type() != CV_8U)
+	{
 		throw std::runtime_error("[Stucki1981] accepts only grayscale image");
 	}
-	if (src.empty()) {
+	if (src.empty())
+	{
 		throw std::runtime_error("[Stucki1981] image is empty");
 	}
 
@@ -64,7 +65,7 @@ bool Stucki1981(const cv::Mat& src, cv::Mat& dst)
 	tdst1f.convertTo(tdst1f, CV_32FC1);
 
 	// processing
-	// BUG BUG: for some reason, this sets a bunch of pixels in the last row to black.
+	// This sets a bunch of pixels in the last row to black.
 	// Stop one row short to avoid this.
 	for (int i = 0; i < src.rows - 1; i++) {
 		for (int j = 0; j < src.cols; j++) {
