@@ -3,6 +3,8 @@ An application for the Raspberry Pi that will capture an image and convert it to
 
 Full parts list and instructions on how to build it on [Instructables](https://www.instructables.com/Digital-Daguerreotype-TSP-Art/)
 
+Video on [YouTube](https://www.youtube.com/watch?v=nJ6iOsTt2ks)
+
 [![YouTube](http://img.youtube.com/vi/nJ6iOsTt2ks/0.jpg)](https://www.youtube.com/watch?v=nJ6iOsTt2ks)
 
 The user interface shows a live feed from the camera until you press the 'start' button. At that point, it freezes the frame and converts it to the TSP art and displays that. The user can then press the 'draw' button to have it sent to the CNC machine for output.
