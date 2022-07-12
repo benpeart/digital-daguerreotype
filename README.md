@@ -49,7 +49,7 @@ In addition to the source in this repo, you also need some additional libraries 
 1.	OpenCV for image processing
 1.	Dear ImGui (immediate mode GUI library)
 1.	Glfw 3.3 for OpenGL
-1.	Concorde (Traveling Salesman toolset) specifically the linkern command line tool
+1.	[Concorde Traveling Salesman Solver](http://www.math.uwaterloo.ca/tsp/concorde/) specifically the linkern command line tool will need to be placed in the source directory
 
 Install and/or build them as per their individual instructions.
 

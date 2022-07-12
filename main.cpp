@@ -574,7 +574,7 @@ void render_slider(rect location, float& clipping_dist)
 	ImGui::PushStyleColor(ImGuiCol_SliderGrab, (ImU32)ImColor(215.f / 255, 215.0f / 255, 215.0f / 255));
 	ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, (ImU32)ImColor(215.f / 255, 215.0f / 255, 215.0f / 255));
 	auto slider_size = ImVec2(location.w / 4, location.h - (pixels_to_buttom_of_stream_text * 2) - 20);
-	ImGui::VSliderFloat("", slider_size, &clipping_dist, 0.0f, 6.0f, "", ImGuiSliderFlags_None);
+	ImGui::VSliderFloat("##slider_size", slider_size, &clipping_dist, 0.0f, 6.0f, "", ImGuiSliderFlags_None);
 
 	// remove the tool tips for now as they just obscure the image underneath
 #ifdef TOOLTIP
