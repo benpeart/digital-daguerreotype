@@ -38,14 +38,14 @@ const int screenWidth = 800;
 const int screenHeight = 480;
 
 // The input width/height should be less than the screen and camera resolution
-const int inputWidthPixels = 720;
+const int inputWidthPixels = 640;
 const int inputHeightPixels = 480;
 
 // Large Etch-A-Sketch screen size is 160 mm x 110 mm (600 x 420 pixels - roughly 3:2 ratio)
 // Printable area on 8.5" / 11" paper is 250 mm x 180 mm
 // The output width/height ratio should be the same as the input ratio to prevent warping the image
 const int outputWidthMM = 250;
-const int outputHeightMM = 167;
+const int outputHeightMM = 187;
 
 
 // constants for UI control placement and state
@@ -65,7 +65,7 @@ bool profile_changed(const std::vector<stream_profile>& current, const std::vect
 void remove_background(rs2::video_frame& other_frame, const rs2::depth_frame& depth_frame, float depth_scale, float clipping_dist);
 void render_slider(rect location, float& clipping_dist);
 void render_buttons(rect location, rs2::pipeline& pipe, program_modes& mode);
-void *print_gcode(void *tsp);
+void* print_gcode(void* tsp);
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -384,7 +384,7 @@ int main(int, char**) try
 				// initialize thread flow control now so it's correct before the thread even starts
 				cancellation_token = false;
 				thread_running = true;
-				rc = pthread_create(&gcode_thread, NULL, print_gcode, (void *)&tsp);
+				rc = pthread_create(&gcode_thread, NULL, print_gcode, (void*)&tsp);
 				if (rc)
 				{
 					fprintf(stderr, "Error %d creating gcode print thread.\n", rc);
@@ -634,7 +634,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 		break;
 
 	case program_modes::computing:
-		ImGui::SetCursorPos({ window_gap, window_gap});
+		ImGui::SetCursorPos({ window_gap, window_gap });
 		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
 #ifdef TOOLTIP
@@ -662,7 +662,7 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 
 	case program_modes::printing:
 		ImGui::SetCursorPos({ window_gap, window_gap });
-		if (ImGui::Button("cancel", { button_width, button_height })) 
+		if (ImGui::Button("cancel", { button_width, button_height }))
 			program_mode = program_modes::interactive;
 #ifdef TOOLTIP
 		if (ImGui::IsItemHovered())
@@ -677,12 +677,12 @@ void render_buttons(rect location, rs2::pipeline& pipe, program_modes& program_m
 }
 
 #ifdef RASPBERRYPI
-void *print_gcode(void *arg)
+void* print_gcode(void* arg)
 {
-	Path *tsp = (Path *)arg;
-	const char *portname = "/dev/ttyUSB0";
+	Path* tsp = (Path*)arg;
+	const char* portname = "/dev/ttyUSB0";
 	int fd;
-	char buf[256], *p;
+	char buf[256], * p;
 	int len;
 	float x, y;
 
@@ -706,14 +706,14 @@ void *print_gcode(void *arg)
 		goto ErrorExit;
 	if (gcode_write(fd, "G1 F3000\n"))	// set a feed rate (determines move speed)
 		goto ErrorExit;
-//	if (gcode_write(fd, "$1=255\n"))	// tell motors to prevent moving when stationary (step idle delay)
-//		goto ErrorExit;
+	//	if (gcode_write(fd, "$1=255\n"))	// tell motors to prevent moving when stationary (step idle delay)
+	//		goto ErrorExit;
 
-	// move to the first point in the TSP with the pen up then lower the pen
-	// I'm flipping the x and y axis to match my CNC machine orientation
+		// move to the first point in the TSP with the pen up then lower the pen
+		// I'm flipping the x and y axis to match my CNC machine orientation
 	x = (float)(*tsp)[0].x * outputWidthMM / inputWidthPixels;
 	y = (float)(*tsp)[0].y * outputHeightMM / inputHeightPixels;
-	sprintf(buf, "G1 X%f Y%f Z0\n", y, x-outputWidthMM);
+	sprintf(buf, "G1 X%f Y%f Z0\n", y, x - outputWidthMM);
 	if (gcode_write(fd, buf))
 		goto ErrorExit;
 	if (gcode_write(fd, "G1 Z5\n"))
@@ -725,7 +725,7 @@ void *print_gcode(void *arg)
 		// output each point as the next position to move to (invert the Y coordinate)
 		x = (float)(*i).x * outputWidthMM / inputWidthPixels;
 		y = (float)(*i).y * outputHeightMM / inputHeightPixels;
-		sprintf(buf, "G1 X%f Y%f Z5\n", y, x-outputWidthMM);
+		sprintf(buf, "G1 X%f Y%f Z5\n", y, x - outputWidthMM);
 		if (gcode_write(fd, buf))
 			goto ErrorExit;
 

@@ -27,22 +27,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -73,12 +73,12 @@
     <LibraryPath>..\glfw\build\src\Release;..\librealsense\build\Release;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;..\librealsense\include;..\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\glfw\build\src\Debug;..\librealsense\build\Debug;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;C:\Program Files (x86)\Intel RealSense SDK 2.0\include;d:\src\opencv.4.7.0\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\glfw\build\src\Debug;$(LibraryPath);c:\Program Files (x86)\Intel RealSense SDK 2.0\lib\x64;d:\src\opencv.4.7.0\build\x64\vc16\lib</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;..\librealsense\include;..\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\glfw\build\src\Release;..\librealsense\build\Release;..\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\glfw\include;..\imgui;..\imgui\backends;C:\Program Files (x86)\Intel RealSense SDK 2.0\include;d:\src\opencv.4.7.0\build\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\glfw\build\src\Release;$(LibraryPath);c:\Program Files (x86)\Intel RealSense SDK 2.0\lib\x64;d:\src\opencv.4.7.0\build\x64\vc16\lib</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -131,15 +131,15 @@ copy "D:\src\opencv\build\x64\vc15\bin\opencv_world451.dll" "$(TargetDir)"</Comm
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
-      <AdditionalDependencies>glfw3.lib;realsense2d.lib;opencv_world451d.lib;%(AdditionalDependencies);opengl32.lib</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;realsense2.lib;opencv_world470d.lib;%(AdditionalDependencies);opengl32.lib</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
       <Command>
       </Command>
     </CustomBuildStep>
     <PostBuildEvent>
-      <Command>copy "D:\src\librealsense\build\Debug\realsense2d.dll" "$(TargetDir)"
-copy "D:\src\opencv\build\x64\vc15\bin\opencv_world451d.dll" "$(TargetDir)"</Command>
+      <Command>copy "C:\Program Files (x86)\Intel RealSense SDK 2.0\bin\x64\realsense2.dll" "$(TargetDir)"
+copy "D:\src\opencv.4.7.0\build\x64\vc16\bin\opencv_world470d.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copy dependencies</Message>
@@ -147,11 +147,11 @@ copy "D:\src\opencv\build\x64\vc15\bin\opencv_world451d.dll" "$(TargetDir)"</Com
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
-      <AdditionalDependencies>realsense2.lib;opencv_world451.lib;%(AdditionalDependencies);glfw3.lib;glfw3.lib;opengl32.lib</AdditionalDependencies>
+      <AdditionalDependencies>realsense2.lib;opencv_world470.lib;%(AdditionalDependencies);glfw3.lib;opengl32.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "D:\src\librealsense\build\Release\realsense2.dll" "$(TargetDir)"
-copy "D:\src\opencv\build\x64\vc15\bin\opencv_world451.dll" "$(TargetDir)"</Command>
+      <Command>copy "C:\Program Files (x86)\Intel RealSense SDK 2.0\bin\x64\realsense2.dll" "$(TargetDir)"
+copy "D:\src\opencv.4.7.0\build\x64\vc16\bin\opencv_world470.dll" "$(TargetDir)"</Command>
       <Message>Copy dependencies</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>

@@ -70,7 +70,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 11)
 
 
-# Unused/not understood
+# Unused/not understood 
 #set_target_properties (${PROJECT_NAME} PROPERTIES FOLDER "Examples")
 #install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
